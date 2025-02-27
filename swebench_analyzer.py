@@ -2,8 +2,10 @@
 """SWE-bench Contributor Analyzer.
 
 This script analyzes SWE-bench datasets to find instances where a specific GitHub
-user has contributed, either as an author, commenter, or being mentioned in issues
-and pull requests.
+user has contributed in ways that would make it into the SWE-bench dataset:
+1. As the original issue author
+2. As a commenter whose comments became part of the "hints" in the dataset
+3. As the pull request author
 
 Datasets are automatically loaded from Hugging Face if not provided locally:
 - princeton-nlp/SWE-bench
@@ -409,7 +411,13 @@ def fetch_github_issue_or_pr(repo, number, token, retries=3, use_cache=True):
     return item, all_comments
 
 def check_user_contribution(username, item, comments):
-    """Check if the user contributed to this issue/PR."""
+    """Check if the user contributed to this issue/PR in a way that appears in the SWE-bench dataset.
+    
+    Only checks for contributions that would make it into the SWE-bench dataset:
+    1. User is the original issue author
+    2. User made comments that became part of the "hints" in the dataset
+    3. User authored the pull request
+    """
     if not item:
         return []
 
@@ -418,31 +426,18 @@ def check_user_contribution(username, item, comments):
     # Check if the user created the issue/PR
     if item.get('user', {}).get('login') == username:
         contribution_types.append("author")
+    
+    # For PRs, check if the user is the PR author
+    if 'pull_request' in item and item.get('user', {}).get('login') == username:
+        contribution_types.append("pr_author")
 
-    # Check if the user is assigned
-    for assignee in item.get('assignees', []):
-        if assignee.get('login') == username:
-            contribution_types.append("assignee")
-            break
-
-    # Check if the user is mentioned in the body
-    body = item.get('body', '')
-    if body and check_text_for_username(body, username):
-        contribution_types.append("mentioned_in_body")
-
-    # Check comments
+    # Check comments - only those that might end up in the hints
     for comment in comments:
         if comment is None:
             continue
 
         if comment.get('user', {}).get('login') == username:
             contribution_types.append("commenter")
-            break
-
-        # Check if mentioned in comments
-        comment_body = comment.get('body', '')
-        if comment_body and check_text_for_username(comment_body, username):
-            contribution_types.append("mentioned_in_comment")
             break
 
     return contribution_types
@@ -452,22 +447,14 @@ def analyze_dataset_offline(dataset, username, output_file):
     results = []
 
     for instance in tqdm(dataset, desc="Analyzing dataset"):
-        contribution_found = False
         contribution_types = []
 
-        # Check problem_statement
-        if 'problem_statement' in instance and instance['problem_statement']:
-            if check_text_for_username(instance['problem_statement'], username):
-                contribution_types.append("mentioned_in_problem")
-                contribution_found = True
-
-        # Check hints_text
+        # Check hints_text - this is the key component for SWE-bench contributions
         if 'hints_text' in instance and instance['hints_text']:
             if check_text_for_username(instance['hints_text'], username):
                 contribution_types.append("mentioned_in_hints")
-                contribution_found = True
 
-        if contribution_found:
+        if contribution_types:
             # Extract repo and number
             repo = instance.get('repo')
             instance_id = instance['instance_id']
@@ -554,13 +541,11 @@ def analyze_dataset_with_github(dataset, username, token, output_file):
             # Fetch from GitHub API
             item, comments = fetch_github_issue_or_pr(repo_name, number, token, use_cache=use_cache)
 
-        # Check contributions
+        # Check GitHub API contributions
         contribution_types = check_user_contribution(username, item, comments)
 
-        # Also check dataset fields
-        if 'problem_statement' in instance and check_text_for_username(instance['problem_statement'], username):
-            contribution_types.append("mentioned_in_problem")
-
+        # Check if user is mentioned in the dataset hints
+        # This is a key part of SWE-bench - contributions in the hints text
         if 'hints_text' in instance and check_text_for_username(instance['hints_text'], username):
             contribution_types.append("mentioned_in_hints")
 
