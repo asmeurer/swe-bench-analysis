@@ -488,6 +488,10 @@ def check_user_contribution(username, item, comments):
         if comment is None:
             continue
 
+        # Skip comments with None 'user' field
+        if comment.get('user') is None:
+            continue
+            
         if comment.get('user', {}).get('login') == username:
             contribution_types.append("commenter")
             break
