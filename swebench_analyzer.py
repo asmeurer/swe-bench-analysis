@@ -17,7 +17,9 @@ import json
 import os
 import sys
 import time
+import hashlib
 from pathlib import Path
+from datetime import datetime, timedelta
 
 import keyring
 import requests
@@ -30,6 +32,59 @@ DATASETS = {
     "swe-bench": "princeton-nlp/SWE-bench",
     "swe-bench-verified": "princeton-nlp/SWE-bench_Verified",
 }
+GITHUB_CACHE_DIR = Path.home() / ".swe-bench-cache" / "github"
+CACHE_EXPIRY_DAYS = 7  # Cache expiry in days
+
+# Cache functions
+def get_cache_key(repo, number):
+    """Generate a unique cache key for a GitHub issue/PR."""
+    cache_key = f"{repo}_{number}"
+    return hashlib.md5(cache_key.encode()).hexdigest()
+
+def get_cache_path(repo, number):
+    """Get the file path for a cached GitHub issue/PR."""
+    cache_key = get_cache_key(repo, number)
+    return GITHUB_CACHE_DIR / f"{cache_key}.json"
+
+def load_from_cache(repo, number):
+    """Load GitHub data from cache if available and not expired."""
+    cache_path = get_cache_path(repo, number)
+    
+    if not cache_path.exists():
+        return None
+    
+    try:
+        with open(cache_path, 'r') as f:
+            cached_data = json.load(f)
+        
+        # Check if cache is expired
+        cached_time = datetime.fromisoformat(cached_data.get('cached_at', '2000-01-01T00:00:00'))
+        if datetime.now() - cached_time > timedelta(days=CACHE_EXPIRY_DAYS):
+            return None
+            
+        return cached_data.get('data')
+    except (json.JSONDecodeError, KeyError, ValueError):
+        # Invalid cache, ignore it
+        return None
+
+def save_to_cache(repo, number, data):
+    """Save GitHub data to cache."""
+    if not data:
+        return
+        
+    # Create cache directory if it doesn't exist
+    GITHUB_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    
+    cache_path = get_cache_path(repo, number)
+    cached_data = {
+        'cached_at': datetime.now().isoformat(),
+        'repo': repo,
+        'number': number,
+        'data': data
+    }
+    
+    with open(cache_path, 'w') as f:
+        json.dump(cached_data, f)
 
 # Configuration functions
 def get_config():
@@ -45,18 +100,23 @@ def get_config():
         }
         config['Paths'] = {
             'cache_dir': '',
+            'github_cache_dir': str(GITHUB_CACHE_DIR),
             'last_output': 'user_contributions.json'
         }
         config['Datasets'] = {
             'swe-bench': '',
             'swe-bench-verified': ''
         }
+        config['Cache'] = {
+            'github_expiry_days': str(CACHE_EXPIRY_DAYS),
+            'enabled': 'true'
+        }
         save_config(config)
     else:
         config.read(config_path)
 
     # Ensure all sections exist
-    for section in ['General', 'Paths', 'Datasets']:
+    for section in ['General', 'Paths', 'Datasets', 'Cache']:
         if section not in config:
             config[section] = {}
 
@@ -256,8 +316,22 @@ def check_text_for_username(text, username):
 
     return False
 
-def fetch_github_issue_or_pr(repo, number, token, retries=3):
-    """Fetch a GitHub issue or PR and its comments."""
+def fetch_github_issue_or_pr(repo, number, token, retries=3, use_cache=True):
+    """Fetch a GitHub issue or PR and its comments with caching support."""
+    # Check config for cache settings
+    config = get_config()
+    cache_enabled = config['Cache'].get('enabled', 'true').lower() == 'true'
+    cache_expiry = int(config['Cache'].get('github_expiry_days', str(CACHE_EXPIRY_DAYS)))
+    
+    # Override GITHUB_CACHE_DIR if specified in config
+    github_cache_dir = Path(config['Paths'].get('github_cache_dir', str(GITHUB_CACHE_DIR)))
+    
+    # Use cache if enabled and requested
+    if cache_enabled and use_cache:
+        cached_data = load_from_cache(repo, number)
+        if cached_data:
+            return cached_data.get('item'), cached_data.get('comments', [])
+    
     base_url = f"https://api.github.com/repos/{repo}"
     headers = {
         "Authorization": f"token {token}",
@@ -323,6 +397,14 @@ def fetch_github_issue_or_pr(repo, number, token, retries=3):
             review_comments = review_response.json()
 
     all_comments = comments + review_comments
+    
+    # Cache the results if cache is enabled
+    if cache_enabled and use_cache:
+        cache_data = {
+            'item': item,
+            'comments': all_comments
+        }
+        save_to_cache(repo, number, cache_data)
 
     return item, all_comments
 
@@ -439,8 +521,14 @@ def analyze_dataset_offline(dataset, username, output_file):
     return results
 
 def analyze_dataset_with_github(dataset, username, token, output_file):
-    """Analyze dataset using GitHub API for thorough checking."""
+    """Analyze dataset using GitHub API for thorough checking with caching support."""
     results = []
+    cache_hits = 0
+    cache_misses = 0
+    
+    # Get cache configuration
+    config = get_config()
+    use_cache = config['Cache'].get('enabled', 'true').lower() == 'true'
 
     for instance in tqdm(dataset, desc="Analyzing with GitHub API"):
         # Extract repository and issue/PR number
@@ -452,8 +540,19 @@ def analyze_dataset_with_github(dataset, username, token, output_file):
             print(f"Could not parse repository/number from: {instance_id}")
             continue
 
-        # Fetch from GitHub API
-        item, comments = fetch_github_issue_or_pr(repo_name, number, token)
+        # Check if data exists in cache before API call
+        cached_data = None
+        if use_cache:
+            cached_data = load_from_cache(repo_name, number)
+            
+        # Track cache hits/misses
+        if cached_data is not None:
+            cache_hits += 1
+            item, comments = cached_data.get('item'), cached_data.get('comments', [])
+        else:
+            cache_misses += 1
+            # Fetch from GitHub API
+            item, comments = fetch_github_issue_or_pr(repo_name, number, token, use_cache=use_cache)
 
         # Check contributions
         contribution_types = check_user_contribution(username, item, comments)
@@ -480,12 +579,23 @@ def analyze_dataset_with_github(dataset, username, token, output_file):
                 },
                 'github_info': {
                     'issue_found': item is not None,
-                    'comment_count': len(comments) if comments else 0
+                    'comment_count': len(comments) if comments else 0,
+                    'from_cache': cached_data is not None
                 }
             })
 
-        # Sleep to avoid rate limits
-        time.sleep(0.2)
+        # Sleep to avoid rate limits (only when making API requests)
+        if cached_data is None and use_cache:
+            time.sleep(0.2)
+
+    # Report cache statistics
+    cache_total = cache_hits + cache_misses
+    cache_hit_rate = (cache_hits / cache_total * 100) if cache_total > 0 else 0
+    print(f"\nGitHub API cache statistics:")
+    print(f"  Cache enabled: {use_cache}")
+    print(f"  Total requests: {cache_total}")
+    print(f"  Cache hits: {cache_hits} ({cache_hit_rate:.1f}%)")
+    print(f"  Cache misses: {cache_misses}")
 
     # Only save if output_file is specified
     if output_file:
@@ -494,7 +604,13 @@ def analyze_dataset_with_github(dataset, username, token, output_file):
                 "username": username,
                 "analysis_mode": "github_api",
                 "date_analyzed": time.strftime("%Y-%m-%d %H:%M:%S"),
-                "count": len(results)
+                "count": len(results),
+                "cache_stats": {
+                    "enabled": use_cache,
+                    "hits": cache_hits,
+                    "misses": cache_misses,
+                    "hit_rate": f"{cache_hit_rate:.1f}%"
+                }
             },
             "results": results
         }
@@ -507,6 +623,12 @@ def analyze_dataset_with_github(dataset, username, token, output_file):
 def analyze_multiple_datasets(datasets, username, token, output_file, use_github):
     """Analyze multiple datasets and combine the results."""
     all_results = []
+    total_cache_hits = 0
+    total_cache_misses = 0
+    
+    # Get cache configuration
+    config = get_config()
+    use_cache = config['Cache'].get('enabled', 'true').lower() == 'true'
 
     for dataset_name, dataset in datasets.items():
         print(f"Analyzing dataset: {dataset_name}")
@@ -516,8 +638,15 @@ def analyze_multiple_datasets(datasets, username, token, output_file, use_github
                 print("Error: GitHub API token is required for GitHub API mode")
                 print("Run with --no-github flag for offline analysis, or provide a token")
                 continue
-
+                
             results = analyze_dataset_with_github(dataset, username, token, None)  # Don't save individual results
+            
+            # Count the number of results with from_cache flag
+            cache_hits_in_dataset = sum(1 for r in results if r.get('github_info', {}).get('from_cache', False))
+            cache_misses_in_dataset = sum(1 for r in results if not r.get('github_info', {}).get('from_cache', False))
+            
+            total_cache_hits += cache_hits_in_dataset
+            total_cache_misses += cache_misses_in_dataset
         else:
             results = analyze_dataset_offline(dataset, username, None)  # Don't save individual results
 
@@ -527,6 +656,15 @@ def analyze_multiple_datasets(datasets, username, token, output_file, use_github
 
         all_results.extend(results)
         print(f"Found {len(results)} contributions in {dataset_name}")
+
+    # Report combined cache statistics
+    if use_github and use_cache:
+        cache_total = total_cache_hits + total_cache_misses
+        cache_hit_rate = (total_cache_hits / cache_total * 100) if cache_total > 0 else 0
+        print(f"\nCombined GitHub API cache statistics:")
+        print(f"  Total requests: {cache_total}")
+        print(f"  Cache hits: {total_cache_hits} ({cache_hit_rate:.1f}%)")
+        print(f"  Cache misses: {total_cache_misses}")
 
     # Save combined results if output file is specified
     if output_file and all_results:
@@ -540,6 +678,15 @@ def analyze_multiple_datasets(datasets, username, token, output_file, use_github
             },
             "results": all_results
         }
+        
+        # Add cache stats if using GitHub API
+        if use_github and use_cache:
+            output_data["metadata"]["cache_stats"] = {
+                "enabled": use_cache,
+                "hits": total_cache_hits,
+                "misses": total_cache_misses,
+                "hit_rate": f"{cache_hit_rate:.1f}%"
+            }
 
         with open(output_file, 'w') as f:
             json.dump(output_data, f, indent=2)
@@ -555,6 +702,10 @@ def main():
     parser.add_argument('--token', help='GitHub API token (optional, will use cached or prompt)')
     parser.add_argument('--no-github', action='store_true', help='Disable GitHub API analysis (offline mode only)')
     parser.add_argument('--cache-dir', help='Directory to cache downloaded datasets')
+    parser.add_argument('--github-cache-dir', help='Directory to cache GitHub API responses')
+    parser.add_argument('--no-cache', action='store_true', help='Disable GitHub API response caching')
+    parser.add_argument('--clear-cache', action='store_true', help='Clear GitHub API response cache before running')
+    parser.add_argument('--cache-expiry', type=int, help='Number of days after which to expire cached GitHub data')
     parser.add_argument('--load-results', help='Load previously saved results instead of running analysis')
     parser.add_argument('--refresh-token', action='store_true', help='Force refresh of GitHub token')
 
@@ -568,6 +719,28 @@ def main():
         results = load_saved_results(args.load_results)
         print_results_summary(results)
         return
+    
+    # Handle cache configuration
+    if args.github_cache_dir:
+        config['Paths']['github_cache_dir'] = args.github_cache_dir
+        
+    if args.cache_expiry:
+        config['Cache']['github_expiry_days'] = str(args.cache_expiry)
+        
+    if args.no_cache:
+        config['Cache']['enabled'] = 'false'
+    
+    # Clear GitHub cache if requested
+    if args.clear_cache:
+        github_cache_dir = Path(config['Paths'].get('github_cache_dir', str(GITHUB_CACHE_DIR)))
+        if github_cache_dir.exists():
+            print(f"Clearing GitHub cache at {github_cache_dir}")
+            import shutil
+            shutil.rmtree(github_cache_dir)
+            os.makedirs(github_cache_dir, exist_ok=True)
+    
+    # Save updated configuration
+    save_config(config)
 
     # Get cache directory from args or config
     cache_dir = args.cache_dir or config['Paths'].get('cache_dir')
@@ -620,6 +793,13 @@ def main():
 
     # Determine whether to use GitHub API
     use_github = not args.no_github  # Default is to use GitHub
+
+    # Set up cache directory
+    github_cache_dir = Path(config['Paths'].get('github_cache_dir', str(GITHUB_CACHE_DIR)))
+    if use_github and config['Cache'].get('enabled', 'true').lower() == 'true':
+        os.makedirs(github_cache_dir, exist_ok=True)
+        print(f"GitHub API cache directory: {github_cache_dir}")
+        print(f"Cache expiry: {config['Cache'].get('github_expiry_days', str(CACHE_EXPIRY_DAYS))} days")
 
     # Get GitHub token if needed
     token = None
