@@ -21,7 +21,7 @@ from pathlib import Path
 
 import keyring
 import requests
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 # Constants
 APP_NAME = "SWEBenchAnalyzer"
@@ -676,21 +676,4 @@ def main():
     save_config(config)
 
 if __name__ == "__main__":
-    # Check for required packages
-    missing_packages = []
-    try:
-        import keyring
-    except ImportError:
-        missing_packages.append("keyring")
-
-    try:
-        import tqdm
-    except ImportError:
-        missing_packages.append("tqdm")
-
-    if missing_packages:
-        print("Some required packages are missing. Please install them:")
-        print("pip install " + " ".join(missing_packages))
-        sys.exit(1)
-
     main()
