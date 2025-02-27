@@ -42,7 +42,7 @@ pip install datasets
 2. Make it executable (optional):
 
 ```bash
-chmod +x swebench-analyzer.py
+chmod +x swebench_analyzer.py
 ```
 
 ## Usage
@@ -52,7 +52,7 @@ chmod +x swebench-analyzer.py
 For first-time use, simply run:
 
 ```bash
-python swebench-analyzer.py
+python swebench_analyzer.py
 ```
 
 The script will:
@@ -65,7 +65,7 @@ The script will:
 ### Command Line Options
 
 ```
-usage: swebench-analyzer.py [-h] [--username USERNAME] [--dataset DATASET]
+usage: swebench_analyzer.py [-h] [--username USERNAME] [--dataset DATASET]
                            [--output OUTPUT] [--token TOKEN] [--no-github]
                            [--cache-dir CACHE_DIR] [--load-results LOAD_RESULTS]
                            [--refresh-token]
@@ -91,31 +91,31 @@ optional arguments:
 #### Analyze both datasets (default)
 
 ```bash
-python swebench-analyzer.py --username your-github-username
+python swebench_analyzer.py --username your-github-username
 ```
 
 #### Analyze only one dataset
 
 ```bash
-python swebench-analyzer.py --dataset swe-bench-verified
+python swebench_analyzer.py --dataset swe-bench-verified
 ```
 
 #### Use offline mode (no GitHub API)
 
 ```bash
-python swebench-analyzer.py --no-github
+python swebench_analyzer.py --no-github
 ```
 
 #### Load previously saved results
 
 ```bash
-python swebench-analyzer.py --load-results user_contributions.json
+python swebench_analyzer.py --load-results user_contributions.json
 ```
 
 #### Update your GitHub API token
 
 ```bash
-python swebench-analyzer.py --refresh-token
+python swebench_analyzer.py --refresh-token
 ```
 
 ## GitHub API Authentication
@@ -131,7 +131,7 @@ For security, the token is stored in your system's secure keyring and not in pla
 
 ## Configuration
 
-The script automatically creates a configuration file at `~/.swebench-analyzer.cfg` to store:
+The script automatically creates a configuration file at `~/.swebench_analyzer.cfg` to store:
 
 - Your GitHub username
 - Dataset cache locations
