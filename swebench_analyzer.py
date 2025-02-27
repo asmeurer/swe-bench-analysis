@@ -20,6 +20,7 @@ import os
 import sys
 import time
 import hashlib
+import concurrent.futures
 from pathlib import Path
 from datetime import datetime, timedelta
 
@@ -36,6 +37,9 @@ DATASETS = {
 }
 GITHUB_CACHE_DIR = Path.home() / ".swe-bench-cache" / "github"
 CACHE_EXPIRY_DAYS = 7  # Cache expiry in days
+MAX_WORKERS = 10  # Default number of parallel workers for GitHub API requests
+REQUEST_TIMEOUT = 10  # Default timeout for GitHub requests in seconds
+BATCH_SIZE = 20  # Process GitHub requests in batches of this size
 
 # Cache functions
 def get_cache_key(repo, number):
@@ -113,12 +117,17 @@ def get_config():
             'github_expiry_days': str(CACHE_EXPIRY_DAYS),
             'enabled': 'true'
         }
+        config['Performance'] = {
+            'max_workers': str(MAX_WORKERS),
+            'request_timeout': str(REQUEST_TIMEOUT),
+            'batch_size': str(BATCH_SIZE)
+        }
         save_config(config)
     else:
         config.read(config_path)
 
     # Ensure all sections exist
-    for section in ['General', 'Paths', 'Datasets', 'Cache']:
+    for section in ['General', 'Paths', 'Datasets', 'Cache', 'Performance']:
         if section not in config:
             config[section] = {}
 
@@ -318,12 +327,16 @@ def check_text_for_username(text, username):
 
     return False
 
-def fetch_github_issue_or_pr(repo, number, token, retries=3, use_cache=True):
+def fetch_github_issue_or_pr(repo, number, token, retries=3, use_cache=True, timeout=None):
     """Fetch a GitHub issue or PR and its comments with caching support."""
     # Check config for cache settings
     config = get_config()
     cache_enabled = config['Cache'].get('enabled', 'true').lower() == 'true'
     cache_expiry = int(config['Cache'].get('github_expiry_days', str(CACHE_EXPIRY_DAYS)))
+    
+    # Get request timeout if not provided
+    if timeout is None:
+        timeout = int(config['Performance'].get('request_timeout', str(REQUEST_TIMEOUT)))
 
     # Override GITHUB_CACHE_DIR if specified in config
     github_cache_dir = Path(config['Paths'].get('github_cache_dir', str(GITHUB_CACHE_DIR)))
@@ -343,7 +356,7 @@ def fetch_github_issue_or_pr(repo, number, token, retries=3, use_cache=True):
     def make_request(url, retry_count=0):
         """Make a GitHub API request with rate limit handling."""
         try:
-            response = requests.get(url, headers=headers)
+            response = requests.get(url, headers=headers, timeout=timeout)
 
             # Check for rate limiting
             if response.status_code == 403 and 'X-RateLimit-Remaining' in response.headers:
@@ -409,6 +422,45 @@ def fetch_github_issue_or_pr(repo, number, token, retries=3, use_cache=True):
         save_to_cache(repo, number, cache_data)
 
     return item, all_comments
+
+
+def fetch_github_issues_batch(items, token, use_cache=True):
+    """Fetch multiple GitHub issues/PRs in parallel."""
+    config = get_config()
+    max_workers = int(config['Performance'].get('max_workers', str(MAX_WORKERS)))
+    timeout = int(config['Performance'].get('request_timeout', str(REQUEST_TIMEOUT)))
+    
+    results = []
+    cache_hits = 0
+    
+    # First check cache for all items
+    if use_cache:
+        cached_items = []
+        uncached_items = []
+        
+        for repo, number in items:
+            cached_data = load_from_cache(repo, number)
+            if cached_data:
+                results.append((cached_data.get('item'), cached_data.get('comments', [])))
+                cache_hits += 1
+            else:
+                uncached_items.append((repo, number))
+    else:
+        uncached_items = items
+    
+    # Only fetch uncached items
+    if uncached_items:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_item = {
+                executor.submit(fetch_github_issue_or_pr, repo, number, token, use_cache=use_cache, timeout=timeout): 
+                (repo, number) for repo, number in uncached_items
+            }
+            
+            for future in concurrent.futures.as_completed(future_to_item):
+                item_result = future.result()
+                results.append(item_result)
+    
+    return results, cache_hits
 
 def check_user_contribution(username, item, comments):
     """Check if the user contributed to this issue/PR in a way that appears in the SWE-bench dataset.
@@ -508,16 +560,20 @@ def analyze_dataset_offline(dataset, username, output_file):
     return results
 
 def analyze_dataset_with_github(dataset, username, token, output_file):
-    """Analyze dataset using GitHub API for thorough checking with caching support."""
+    """Analyze dataset using GitHub API with parallel batch processing."""
     results = []
     cache_hits = 0
     cache_misses = 0
+    start_time = time.time()
 
-    # Get cache configuration
+    # Get cache and performance configuration
     config = get_config()
     use_cache = config['Cache'].get('enabled', 'true').lower() == 'true'
-
-    for instance in tqdm(dataset, desc="Analyzing with GitHub API"):
+    batch_size = int(config['Performance'].get('batch_size', str(BATCH_SIZE)))
+    
+    # Prepare all instances
+    instances_to_process = []
+    for instance in dataset:
         # Extract repository and issue/PR number
         repo = instance.get('repo')
         instance_id = instance['instance_id']
@@ -527,60 +583,67 @@ def analyze_dataset_with_github(dataset, username, token, output_file):
             print(f"Could not parse repository/number from: {instance_id}")
             continue
 
-        # Check if data exists in cache before API call
-        cached_data = None
-        if use_cache:
-            cached_data = load_from_cache(repo_name, number)
+        instances_to_process.append((instance, repo_name, number))
+    
+    # Process in batches
+    total_batches = (len(instances_to_process) + batch_size - 1) // batch_size
+    
+    for batch_idx in tqdm(range(total_batches), desc="Processing batches"):
+        batch_start = batch_idx * batch_size
+        batch_end = min(batch_start + batch_size, len(instances_to_process))
+        current_batch = instances_to_process[batch_start:batch_end]
+        
+        # Extract GitHub issue info for the batch
+        github_items = [(repo_name, number) for (_, repo_name, number) in current_batch]
+        
+        # Fetch all GitHub data in parallel
+        github_results, batch_cache_hits = fetch_github_issues_batch(github_items, token, use_cache=use_cache)
+        cache_hits += batch_cache_hits
+        cache_misses += len(github_items) - batch_cache_hits
+        
+        # Process results for each instance
+        for idx, ((instance, repo_name, number), (item, comments)) in enumerate(zip(current_batch, github_results)):
+            # Check GitHub API contributions
+            contribution_types = check_user_contribution(username, item, comments)
 
-        # Track cache hits/misses
-        if cached_data is not None:
-            cache_hits += 1
-            item, comments = cached_data.get('item'), cached_data.get('comments', [])
-        else:
-            cache_misses += 1
-            # Fetch from GitHub API
-            item, comments = fetch_github_issue_or_pr(repo_name, number, token, use_cache=use_cache)
+            # Check if user is mentioned in the dataset hints
+            if 'hints_text' in instance and check_text_for_username(instance['hints_text'], username):
+                contribution_types.append("mentioned_in_hints")
 
-        # Check GitHub API contributions
-        contribution_types = check_user_contribution(username, item, comments)
-
-        # Check if user is mentioned in the dataset hints
-        # This is a key part of SWE-bench - contributions in the hints text
-        if 'hints_text' in instance and check_text_for_username(instance['hints_text'], username):
-            contribution_types.append("mentioned_in_hints")
-
-        # If any contributions found, add to results
-        if contribution_types:
-            results.append({
-                'instance_id': instance_id,
-                'repo': repo_name,
-                'contribution_types': list(set(contribution_types)),  # Remove duplicates
-                'title': item.get('title', 'Unknown') if item else "Unknown",
-                'url': item.get('html_url', f"https://github.com/{repo_name}/issues/{number}") if item else f"https://github.com/{repo_name}/issues/{number}",
-                'created_at': item.get('created_at', instance.get('created_at', 'Unknown')) if item else instance.get('created_at', 'Unknown'),
-                'dataset_info': {
-                    'problem_statement': instance.get('problem_statement', ''),
-                    'hints_text': instance.get('hints_text', '')
-                },
-                'github_info': {
-                    'issue_found': item is not None,
-                    'comment_count': len(comments) if comments else 0,
-                    'from_cache': cached_data is not None
-                }
-            })
-
-        # Sleep to avoid rate limits (only when making API requests)
-        if cached_data is None and use_cache:
-            time.sleep(0.2)
-
+            # If any contributions found, add to results
+            if contribution_types:
+                results.append({
+                    'instance_id': instance['instance_id'],
+                    'repo': repo_name,
+                    'contribution_types': list(set(contribution_types)),  # Remove duplicates
+                    'title': item.get('title', 'Unknown') if item else "Unknown",
+                    'url': item.get('html_url', f"https://github.com/{repo_name}/issues/{number}") if item else f"https://github.com/{repo_name}/issues/{number}",
+                    'created_at': item.get('created_at', instance.get('created_at', 'Unknown')) if item else instance.get('created_at', 'Unknown'),
+                    'dataset_info': {
+                        'problem_statement': instance.get('problem_statement', ''),
+                        'hints_text': instance.get('hints_text', '')
+                    },
+                    'github_info': {
+                        'issue_found': item is not None,
+                        'comment_count': len(comments) if comments else 0,
+                        'from_cache': idx < batch_cache_hits  # Approximation since we don't track individual cache hits
+                    }
+                })
+    
+    # Calculate elapsed time
+    elapsed_time = time.time() - start_time
+    
     # Report cache statistics
     cache_total = cache_hits + cache_misses
     cache_hit_rate = (cache_hits / cache_total * 100) if cache_total > 0 else 0
-    print(f"\nGitHub API cache statistics:")
+    
+    print(f"\nGitHub API analysis completed in {elapsed_time:.2f} seconds")
+    print(f"GitHub API cache statistics:")
     print(f"  Cache enabled: {use_cache}")
     print(f"  Total requests: {cache_total}")
     print(f"  Cache hits: {cache_hits} ({cache_hit_rate:.1f}%)")
     print(f"  Cache misses: {cache_misses}")
+    print(f"  Processed in {total_batches} batches of {batch_size}")
 
     # Only save if output_file is specified
     if output_file:
@@ -590,6 +653,11 @@ def analyze_dataset_with_github(dataset, username, token, output_file):
                 "analysis_mode": "github_api",
                 "date_analyzed": time.strftime("%Y-%m-%d %H:%M:%S"),
                 "count": len(results),
+                "performance": {
+                    "elapsed_seconds": elapsed_time,
+                    "batch_size": batch_size,
+                    "total_batches": total_batches,
+                },
                 "cache_stats": {
                     "enabled": use_cache,
                     "hits": cache_hits,
@@ -693,6 +761,9 @@ def main():
     parser.add_argument('--cache-expiry', type=int, help='Number of days after which to expire cached GitHub data')
     parser.add_argument('--load-results', help='Load previously saved results instead of running analysis')
     parser.add_argument('--refresh-token', action='store_true', help='Force refresh of GitHub token')
+    parser.add_argument('--workers', type=int, help='Number of worker threads for parallel API requests')
+    parser.add_argument('--batch-size', type=int, help='Number of API requests to process in each batch')
+    parser.add_argument('--timeout', type=int, help='Timeout in seconds for API requests')
 
     args = parser.parse_args()
 
@@ -714,6 +785,16 @@ def main():
 
     if args.no_cache:
         config['Cache']['enabled'] = 'false'
+        
+    # Handle performance configuration
+    if args.workers:
+        config['Performance']['max_workers'] = str(args.workers)
+        
+    if args.batch_size:
+        config['Performance']['batch_size'] = str(args.batch_size)
+        
+    if args.timeout:
+        config['Performance']['request_timeout'] = str(args.timeout)
 
     # Clear GitHub cache if requested
     if args.clear_cache:
@@ -813,6 +894,16 @@ def main():
     # Analyze datasets
     print(f"Starting analysis for username: {username}")
     print(f"Using {'GitHub API' if use_github else 'offline'} mode")
+    
+    # If using GitHub API, show performance settings
+    if use_github:
+        max_workers = int(config['Performance'].get('max_workers', str(MAX_WORKERS)))
+        batch_size = int(config['Performance'].get('batch_size', str(BATCH_SIZE)))
+        timeout = int(config['Performance'].get('request_timeout', str(REQUEST_TIMEOUT)))
+        print(f"Performance settings:")
+        print(f"  Workers: {max_workers} parallel threads")
+        print(f"  Batch size: {batch_size} requests per batch")
+        print(f"  Request timeout: {timeout} seconds")
 
     # For multiple datasets
     if len(datasets_to_analyze) > 1:
