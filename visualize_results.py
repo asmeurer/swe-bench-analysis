@@ -9,6 +9,7 @@ showing contribution patterns, repository distributions, and other insights.
 import json
 import argparse
 import os
+import webbrowser
 from collections import Counter, defaultdict
 from datetime import datetime
 import matplotlib.pyplot as plt
@@ -687,6 +688,8 @@ def main():
                       help='Directory to save visualizations (default: visualizations)')
     parser.add_argument('--show', action='store_true',
                       help='Show visualizations instead of saving to files')
+    parser.add_argument('--no-browser', action='store_true',
+                      help='Do not automatically open the report in a web browser')
     args = parser.parse_args()
     
     # Load data
@@ -704,8 +707,14 @@ def main():
     create_visualizations(processed_data, output_dir)
     
     if not args.show:
+        report_path = os.path.join(os.path.abspath(args.output_dir), 'report.html')
         print(f"Visualizations saved to {args.output_dir}/")
-        print(f"Open {args.output_dir}/report.html to view the complete report")
+        
+        if not args.no_browser:
+            print(f"Opening {report_path} in your browser...")
+            webbrowser.open('file://' + report_path)
+        else:
+            print(f"You can view the report at {report_path}")
 
 if __name__ == "__main__":
     main()
