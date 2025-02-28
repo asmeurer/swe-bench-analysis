@@ -3,3 +3,7 @@ tqdm
 requests
 ruff
 datasets
+matplotlib
+seaborn
+pandas
+numpy

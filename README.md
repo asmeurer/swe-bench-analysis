@@ -1,10 +1,13 @@
 # SWE-bench Contributor Analyzer
 
-A tool for analyzing the SWE-bench and SWE-bench-verified datasets to identify GitHub issues and pull requests that you have contributed to.
+A tool for analyzing the SWE-bench and SWE-bench-verified datasets to identify GitHub issues and pull requests that you have contributed to, with comprehensive visualization of results.
 
 ## Overview
 
-This script helps you find instances in the SWE-bench datasets where you have contributed as an author, commenter, assignee, or are mentioned in issues/PRs. It works with both the full SWE-bench dataset and the human-verified subset.
+This repository contains two main components:
+
+1. **SWE-bench Analyzer**: Finds instances in the SWE-bench datasets where you have contributed as an author, commenter, assignee, or are mentioned in issues/PRs.
+2. **Visualizer**: Creates interactive charts and a comprehensive HTML report to visualize your contributions.
 
 The analyzer can operate in two modes:
 - **Offline mode**: Scans the dataset files directly for mentions of your username
@@ -19,6 +22,13 @@ The analyzer can operate in two modes:
 - **Comprehensive analysis** across both SWE-bench datasets
 - **Detailed reporting** with contribution breakdowns by repository and type
 - **Results caching** for viewing previous analyses without rerunning
+- **Interactive visualizations** including:
+  - Repository distribution charts
+  - Contribution type analysis
+  - Timeline of contributions
+  - Repository and contribution type heatmaps
+  - Dataset comparisons
+- **Exportable HTML reports** for easy sharing and presenting results
 
 ## Installation
 
@@ -28,22 +38,28 @@ The analyzer can operate in two modes:
 - Required packages:
 
 ```bash
-pip install requests tqdm keyring configparser
+pip install -r requirements.txt
 ```
 
-For dataset downloading:
-
-```bash
-pip install datasets
-```
+This will install all necessary dependencies, including:
+- `requests`, `tqdm`, `keyring` - For the analyzer
+- `datasets` - For downloading SWE-bench datasets
+- `matplotlib`, `seaborn`, `pandas`, `numpy` - For visualizations
 
 ### Setup
 
-1. Clone or download this script
-2. Make it executable (optional):
+1. Clone or download this repository
+2. Install the required dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+3. Make the scripts executable (optional):
 
 ```bash
 chmod +x swebench_analyzer.py
+chmod +x visualize_results.py
 ```
 
 ## Usage
@@ -94,7 +110,7 @@ optional arguments:
   --refresh-token       Force refresh of GitHub token
 ```
 
-### Examples
+### Analyzer Examples
 
 #### Analyze both datasets (default)
 
@@ -148,6 +164,55 @@ python swebench_analyzer.py --github-cache-dir ~/.github-cache
 
 ```bash
 python swebench_analyzer.py --cache-expiry 14  # Cache valid for 14 days
+```
+
+### Visualizer Usage
+
+After running the analyzer and generating the `user_contributions.json` file, visualize the results:
+
+```bash
+python visualize_results.py
+```
+
+This will:
+1. Load the data from `user_contributions.json`
+2. Create various visualizations 
+3. Generate an HTML report in the `visualizations/` directory
+4. Save all chart images in the same directory
+
+#### Visualizer Command Line Options
+
+```
+usage: visualize_results.py [-h] [--input INPUT] [--output-dir OUTPUT_DIR] [--show]
+
+Visualize SWE-bench analyzer results
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --input INPUT         Input JSON file from swebench_analyzer.py (default: user_contributions.json)
+  --output-dir OUTPUT_DIR
+                        Directory to save visualizations (default: visualizations)
+  --show                Show visualizations instead of saving to files
+```
+
+#### Visualizer Examples
+
+##### Specify a custom input file
+
+```bash
+python visualize_results.py --input path/to/results.json
+```
+
+##### Show visualizations interactively instead of saving them
+
+```bash
+python visualize_results.py --show
+```
+
+##### Specify a custom output directory
+
+```bash
+python visualize_results.py --output-dir my-visualizations
 ```
 
 ## GitHub API Authentication
