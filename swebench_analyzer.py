@@ -333,7 +333,7 @@ def fetch_github_issue_or_pr(repo, number, token, retries=3, use_cache=True, tim
     config = get_config()
     cache_enabled = config['Cache'].get('enabled', 'true').lower() == 'true'
     cache_expiry = int(config['Cache'].get('github_expiry_days', str(CACHE_EXPIRY_DAYS)))
-    
+
     # Get request timeout if not provided
     if timeout is None:
         timeout = int(config['Performance'].get('request_timeout', str(REQUEST_TIMEOUT)))
@@ -429,15 +429,15 @@ def fetch_github_issues_batch(items, token, use_cache=True):
     config = get_config()
     max_workers = int(config['Performance'].get('max_workers', str(MAX_WORKERS)))
     timeout = int(config['Performance'].get('request_timeout', str(REQUEST_TIMEOUT)))
-    
+
     results = []
     cache_hits = 0
-    
+
     # First check cache for all items
     if use_cache:
         cached_items = []
         uncached_items = []
-        
+
         for repo, number in items:
             cached_data = load_from_cache(repo, number)
             if cached_data:
@@ -447,24 +447,24 @@ def fetch_github_issues_batch(items, token, use_cache=True):
                 uncached_items.append((repo, number))
     else:
         uncached_items = items
-    
+
     # Only fetch uncached items
     if uncached_items:
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_item = {
-                executor.submit(fetch_github_issue_or_pr, repo, number, token, use_cache=use_cache, timeout=timeout): 
+                executor.submit(fetch_github_issue_or_pr, repo, number, token, use_cache=use_cache, timeout=timeout):
                 (repo, number) for repo, number in uncached_items
             }
-            
+
             for future in concurrent.futures.as_completed(future_to_item):
                 item_result = future.result()
                 results.append(item_result)
-    
+
     return results, cache_hits
 
 def check_user_contribution(username, item, comments):
     """Check if the user contributed to this issue/PR in a way that appears in the SWE-bench dataset.
-    
+
     Only checks for contributions that would make it into the SWE-bench dataset:
     1. User is the original issue author
     2. User made comments that became part of the "hints" in the dataset
@@ -478,7 +478,7 @@ def check_user_contribution(username, item, comments):
     # Check if the user created the issue/PR
     if item.get('user', {}).get('login') == username:
         contribution_types.append("author")
-    
+
     # For PRs, check if the user is the PR author
     if 'pull_request' in item and item.get('user', {}).get('login') == username:
         contribution_types.append("pr_author")
@@ -491,7 +491,7 @@ def check_user_contribution(username, item, comments):
         # Skip comments with None 'user' field
         if comment.get('user') is None:
             continue
-            
+
         if comment.get('user', {}).get('login') == username:
             contribution_types.append("commenter")
             break
@@ -574,7 +574,7 @@ def analyze_dataset_with_github(dataset, username, token, output_file):
     config = get_config()
     use_cache = config['Cache'].get('enabled', 'true').lower() == 'true'
     batch_size = int(config['Performance'].get('batch_size', str(BATCH_SIZE)))
-    
+
     # Prepare all instances
     instances_to_process = []
     for instance in dataset:
@@ -588,23 +588,23 @@ def analyze_dataset_with_github(dataset, username, token, output_file):
             continue
 
         instances_to_process.append((instance, repo_name, number))
-    
+
     # Process in batches
     total_batches = (len(instances_to_process) + batch_size - 1) // batch_size
-    
+
     for batch_idx in tqdm(range(total_batches), desc="Processing batches"):
         batch_start = batch_idx * batch_size
         batch_end = min(batch_start + batch_size, len(instances_to_process))
         current_batch = instances_to_process[batch_start:batch_end]
-        
+
         # Extract GitHub issue info for the batch
         github_items = [(repo_name, number) for (_, repo_name, number) in current_batch]
-        
+
         # Fetch all GitHub data in parallel
         github_results, batch_cache_hits = fetch_github_issues_batch(github_items, token, use_cache=use_cache)
         cache_hits += batch_cache_hits
         cache_misses += len(github_items) - batch_cache_hits
-        
+
         # Process results for each instance
         for idx, ((instance, repo_name, number), (item, comments)) in enumerate(zip(current_batch, github_results)):
             # Check GitHub API contributions
@@ -633,14 +633,14 @@ def analyze_dataset_with_github(dataset, username, token, output_file):
                         'from_cache': idx < batch_cache_hits  # Approximation since we don't track individual cache hits
                     }
                 })
-    
+
     # Calculate elapsed time
     elapsed_time = time.time() - start_time
-    
+
     # Report cache statistics
     cache_total = cache_hits + cache_misses
     cache_hit_rate = (cache_hits / cache_total * 100) if cache_total > 0 else 0
-    
+
     print(f"\nGitHub API analysis completed in {elapsed_time:.2f} seconds")
     print(f"GitHub API cache statistics:")
     print(f"  Cache enabled: {use_cache}")
@@ -789,14 +789,14 @@ def main():
 
     if args.no_cache:
         config['Cache']['enabled'] = 'false'
-        
+
     # Handle performance configuration
     if args.workers:
         config['Performance']['max_workers'] = str(args.workers)
-        
+
     if args.batch_size:
         config['Performance']['batch_size'] = str(args.batch_size)
-        
+
     if args.timeout:
         config['Performance']['request_timeout'] = str(args.timeout)
 
@@ -898,7 +898,7 @@ def main():
     # Analyze datasets
     print(f"Starting analysis for username: {username}")
     print(f"Using {'GitHub API' if use_github else 'offline'} mode")
-    
+
     # If using GitHub API, show performance settings
     if use_github:
         max_workers = int(config['Performance'].get('max_workers', str(MAX_WORKERS)))
