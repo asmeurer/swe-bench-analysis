@@ -65,14 +65,20 @@ def load_from_cache(repo, number):
         if datetime.now() - cached_time > timedelta(days=CACHE_EXPIRY_DAYS):
             return None
 
-        return cached_data.get('data')
+        # Check if this is a 404 cached response
+        data = cached_data.get('data')
+        if isinstance(data, dict) and data.get('is_404', False):
+            return data
+            
+        return data
     except (json.JSONDecodeError, KeyError, ValueError):
         # Invalid cache, ignore it
         return None
 
 def save_to_cache(repo, number, data):
     """Save GitHub data to cache."""
-    if not data:
+    # Allow empty dict for 404 responses, but not None
+    if data is None:
         return
 
     # Create cache directory if it doesn't exist
@@ -340,6 +346,12 @@ def fetch_github_issue_or_pr(repo, number, token, retries=3, use_cache=True, tim
     if cache_enabled and use_cache:
         cached_data = load_from_cache(repo, number)
         if cached_data:
+            # Check if this is a cached 404 error
+            if cached_data.get('is_404', False):
+                print(f"Using cached 404 response for {repo}/{number}")
+                return None, []
+                
+            # Regular cached data
             return cached_data.get('item'), cached_data.get('comments', [])
 
     base_url = f"https://api.github.com/repos/{repo}"
@@ -376,17 +388,51 @@ def fetch_github_issue_or_pr(repo, number, token, retries=3, use_cache=True, tim
     # Try as a PR first
     pr_url = f"{base_url}/pulls/{number}"
     pr_response = make_request(pr_url)
+    
+    # Handle failed or 404 PR requests 
+    if pr_response is None or (pr_response and pr_response.status_code == 404):
+        # Try as an issue before caching the 404
+        issue_url = f"{base_url}/issues/{number}"
+        issue_response = make_request(issue_url)
+        
+        # If both PR and issue return 404 or fail, cache the 404
+        if issue_response is None or (issue_response and issue_response.status_code == 404):
+            status = issue_response.status_code if issue_response else "Connection error"
+            print(f"PR/Issue not found for {repo}/{number} - caching as 404")
+            
+            # Cache 404 responses if cache is enabled
+            if cache_enabled and use_cache:
+                cache_data = {
+                    'is_404': True
+                }
+                save_to_cache(repo, number, cache_data)
+                
+            return None, []
+    
     is_pr = pr_response and pr_response.status_code == 200
 
     if is_pr:
         item = pr_response.json()
     else:
-        # If not a PR, try as an issue
-        issue_url = f"{base_url}/issues/{number}"
-        issue_response = make_request(issue_url)
+        # If not a PR, try as an issue (if not already tried above)
+        if not pr_response or pr_response.status_code != 404:
+            issue_url = f"{base_url}/issues/{number}"
+            issue_response = make_request(issue_url)
 
-        if not issue_response or issue_response.status_code != 200:
-            status = issue_response.status_code if issue_response else "No response"
+        if not issue_response or issue_response.status_code == 404:
+            print(f"Issue not found for {repo}/{number} - caching as 404")
+            
+            # Cache 404 responses if cache is enabled
+            if cache_enabled and use_cache:
+                cache_data = {
+                    'is_404': True
+                }
+                save_to_cache(repo, number, cache_data)
+                
+            return None, []
+            
+        if issue_response.status_code != 200:
+            status = issue_response.status_code
             print(f"Error fetching {issue_url}: {status}")
             return None, []
 
@@ -412,7 +458,8 @@ def fetch_github_issue_or_pr(repo, number, token, retries=3, use_cache=True, tim
     if cache_enabled and use_cache:
         cache_data = {
             'item': item,
-            'comments': all_comments
+            'comments': all_comments,
+            'is_404': False
         }
         save_to_cache(repo, number, cache_data)
 
@@ -526,6 +573,7 @@ def analyze_dataset_with_github(dataset, username, token, output_file):
     results = []
     cache_hits = 0
     cache_misses = 0
+    cache_404_hits = 0
     start_time = time.time()
 
     # Get cache and performance configuration
@@ -551,8 +599,12 @@ def analyze_dataset_with_github(dataset, username, token, output_file):
 
         # Track cache hits/misses
         if cached_data is not None:
-            cache_hits += 1
-            item, comments = cached_data.get('item'), cached_data.get('comments', [])
+            if cached_data.get('is_404', False):
+                cache_404_hits += 1
+                item, comments = None, []
+            else:
+                cache_hits += 1
+                item, comments = cached_data.get('item'), cached_data.get('comments', [])
         else:
             cache_misses += 1
             # Fetch from GitHub API
@@ -581,7 +633,8 @@ def analyze_dataset_with_github(dataset, username, token, output_file):
                 'github_info': {
                     'issue_found': item is not None,
                     'comment_count': len(comments) if comments else 0,
-                    'from_cache': cached_data is not None
+                    'from_cache': cached_data is not None,
+                    'is_404': cached_data.get('is_404', False) if cached_data else False
                 }
             })
 
@@ -593,14 +646,16 @@ def analyze_dataset_with_github(dataset, username, token, output_file):
     elapsed_time = time.time() - start_time
 
     # Report cache statistics
-    cache_total = cache_hits + cache_misses
-    cache_hit_rate = (cache_hits / cache_total * 100) if cache_total > 0 else 0
+    cache_total = cache_hits + cache_misses + cache_404_hits
+    cache_hit_rate = ((cache_hits + cache_404_hits) / cache_total * 100) if cache_total > 0 else 0
 
     print(f"\nGitHub API analysis completed in {elapsed_time:.2f} seconds")
     print(f"GitHub API cache statistics:")
     print(f"  Cache enabled: {use_cache}")
     print(f"  Total requests: {cache_total}")
-    print(f"  Cache hits: {cache_hits} ({cache_hit_rate:.1f}%)")
+    print(f"  Regular cache hits: {cache_hits}")
+    print(f"  404 cache hits: {cache_404_hits}")
+    print(f"  Combined cache hits: {cache_hits + cache_404_hits} ({cache_hit_rate:.1f}%)")
     print(f"  Cache misses: {cache_misses}")
 
     # Only save if output_file is specified
@@ -616,7 +671,9 @@ def analyze_dataset_with_github(dataset, username, token, output_file):
                 },
                 "cache_stats": {
                     "enabled": use_cache,
-                    "hits": cache_hits,
+                    "regular_hits": cache_hits,
+                    "not_found_hits": cache_404_hits,
+                    "total_hits": cache_hits + cache_404_hits,
                     "misses": cache_misses,
                     "hit_rate": f"{cache_hit_rate:.1f}%"
                 }
@@ -634,6 +691,7 @@ def analyze_multiple_datasets(datasets, username, token, output_file, use_github
     all_results = []
     total_cache_hits = 0
     total_cache_misses = 0
+    total_cache_404_hits = 0
 
     # Get cache configuration
     config = get_config()
@@ -650,11 +708,13 @@ def analyze_multiple_datasets(datasets, username, token, output_file, use_github
 
             results = analyze_dataset_with_github(dataset, username, token, None)  # Don't save individual results
 
-            # Count the number of results with from_cache flag
-            cache_hits_in_dataset = sum(1 for r in results if r.get('github_info', {}).get('from_cache', False))
+            # Count the different types of cache hits
+            regular_cache_hits = sum(1 for r in results if r.get('github_info', {}).get('from_cache', False) and not r.get('github_info', {}).get('is_404', False))
+            cache_404_hits = sum(1 for r in results if r.get('github_info', {}).get('from_cache', False) and r.get('github_info', {}).get('is_404', False))
             cache_misses_in_dataset = sum(1 for r in results if not r.get('github_info', {}).get('from_cache', False))
 
-            total_cache_hits += cache_hits_in_dataset
+            total_cache_hits += regular_cache_hits
+            total_cache_404_hits += cache_404_hits
             total_cache_misses += cache_misses_in_dataset
         else:
             results = analyze_dataset_offline(dataset, username, None)  # Don't save individual results
@@ -668,11 +728,15 @@ def analyze_multiple_datasets(datasets, username, token, output_file, use_github
 
     # Report combined cache statistics
     if use_github and use_cache:
-        cache_total = total_cache_hits + total_cache_misses
-        cache_hit_rate = (total_cache_hits / cache_total * 100) if cache_total > 0 else 0
+        cache_total = total_cache_hits + total_cache_404_hits + total_cache_misses
+        combined_hits = total_cache_hits + total_cache_404_hits
+        cache_hit_rate = (combined_hits / cache_total * 100) if cache_total > 0 else 0
+        
         print(f"\nCombined GitHub API cache statistics:")
         print(f"  Total requests: {cache_total}")
-        print(f"  Cache hits: {total_cache_hits} ({cache_hit_rate:.1f}%)")
+        print(f"  Regular cache hits: {total_cache_hits}")
+        print(f"  404 cache hits: {total_cache_404_hits}")
+        print(f"  Combined cache hits: {combined_hits} ({cache_hit_rate:.1f}%)")
         print(f"  Cache misses: {total_cache_misses}")
 
     # Save combined results if output file is specified
@@ -692,7 +756,9 @@ def analyze_multiple_datasets(datasets, username, token, output_file, use_github
         if use_github and use_cache:
             output_data["metadata"]["cache_stats"] = {
                 "enabled": use_cache,
-                "hits": total_cache_hits,
+                "regular_hits": total_cache_hits,
+                "not_found_hits": total_cache_404_hits,
+                "total_hits": total_cache_hits + total_cache_404_hits,
                 "misses": total_cache_misses,
                 "hit_rate": f"{cache_hit_rate:.1f}%"
             }
