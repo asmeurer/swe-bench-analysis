@@ -41,7 +41,6 @@ def format_contribution_type(contribution_type):
 
     # Handle special types
     type_map = {
-        "author": "PR Author",
         "pr_author": "PR Author",
         "commenter": "Commenter",
         "dataset_commenter": "Dataset Comment Contributor",
@@ -360,6 +359,11 @@ def create_html_report(processed_data, output_dir):
             h1, h2, h3 {{
                 color: #2c3e50;
             }}
+            #entries-count {{
+                margin: 10px 0;
+                font-weight: bold;
+                color: #2c3e50;
+            }}
             .container {{
                 display: flex;
                 flex-wrap: wrap;
@@ -506,8 +510,14 @@ def create_html_report(processed_data, output_dir):
                 let activeRepo = 'all';
                 let activeType = 'all';
 
+                // Set initial count values
+                document.getElementById('total-count').textContent = allRows.length;
+                document.getElementById('visible-count').textContent = allRows.length;
+
                 // Helper function to apply all filters
                 function applyFilters() {{
+                    let visibleCount = 0;
+
                     allRows.forEach(row => {{
                         // Get row attributes
                         const rowDataset = row.getAttribute('data-dataset');
@@ -520,7 +530,11 @@ def create_html_report(processed_data, output_dir):
                         const passesType = (activeType === 'all' || (rowTypes && rowTypes.includes(activeType)));
 
                         // Display row only if it passes all filters
-                        row.style.display = (passesDataset && passesRepo && passesType) ? '' : 'none';
+                        const isVisible = (passesDataset && passesRepo && passesType);
+                        row.style.display = isVisible ? '' : 'none';
+
+                        // Count visible rows
+                        if (isVisible) visibleCount++;
 
                         // Hide details rows when filtering
                         const detailsRow = row.nextElementSibling;
@@ -532,6 +546,9 @@ def create_html_report(processed_data, output_dir):
                             }}
                         }}
                     }});
+
+                    // Update the count display
+                    document.getElementById('visible-count').textContent = visibleCount;
                 }}
 
                 // Dataset filter functionality
@@ -607,6 +624,8 @@ def create_html_report(processed_data, output_dir):
                         return;
                     }}
 
+                    let visibleCount = 0;
+
                     allRows.forEach(row => {{
                         const text = row.textContent.toLowerCase();
                         // Check if text matches search AND passes all current filters
@@ -615,7 +634,11 @@ def create_html_report(processed_data, output_dir):
                         const passesRepo = (activeRepo === 'all' || row.getAttribute('data-repo') === activeRepo);
                         const passesType = (activeType === 'all' || (row.getAttribute('data-types') && row.getAttribute('data-types').includes(activeType)));
 
-                        row.style.display = (matchesSearch && passesDataset && passesRepo && passesType) ? '' : 'none';
+                        const isVisible = (matchesSearch && passesDataset && passesRepo && passesType);
+                        row.style.display = isVisible ? '' : 'none';
+
+                        // Count visible rows
+                        if (isVisible) visibleCount++;
 
                         // Hide details rows when filtering
                         const detailsRow = row.nextElementSibling;
@@ -627,6 +650,9 @@ def create_html_report(processed_data, output_dir):
                             }}
                         }}
                     }});
+
+                    // Update the count display
+                    document.getElementById('visible-count').textContent = visibleCount;
                 }});
             }});
         </script>
@@ -786,6 +812,8 @@ def create_html_report(processed_data, output_dir):
         <div class="search-container">
             <input type="text" id="searchInput" placeholder="Search issues by title, repo, or contribution type...">
         </div>
+
+        <div id="entries-count">Showing all <span id="visible-count">0</span> of <span id="total-count">0</span> entries</div>
 
         <table id="contributions-table">
             <tr>
