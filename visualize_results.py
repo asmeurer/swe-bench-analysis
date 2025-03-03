@@ -501,27 +501,81 @@ def create_html_report(processed_data, output_dir):
         </style>
         <script>
             document.addEventListener('DOMContentLoaded', function() {{
-                // Filter functionality
-                const filterButtons = document.querySelectorAll('.dataset-filter');
                 const allRows = document.querySelectorAll('.repo-row');
+                let activeDataset = 'all';
+                let activeRepo = 'all';
+                let activeType = 'all';
                 
-                filterButtons.forEach(button => {{
+                // Helper function to apply all filters
+                function applyFilters() {{
+                    allRows.forEach(row => {{
+                        // Get row attributes
+                        const rowDataset = row.getAttribute('data-dataset');
+                        const rowRepo = row.getAttribute('data-repo');
+                        const rowTypes = row.getAttribute('data-types');
+                        
+                        // Check if row passes all filters
+                        const passesDataset = (activeDataset === 'all' || rowDataset === activeDataset);
+                        const passesRepo = (activeRepo === 'all' || rowRepo === activeRepo);
+                        const passesType = (activeType === 'all' || (rowTypes && rowTypes.includes(activeType)));
+                        
+                        // Display row only if it passes all filters
+                        row.style.display = (passesDataset && passesRepo && passesType) ? '' : 'none';
+                        
+                        // Hide details rows when filtering
+                        const detailsRow = row.nextElementSibling;
+                        if (detailsRow && detailsRow.classList.contains('details-row')) {{
+                            detailsRow.style.display = 'none';
+                            const toggleButton = row.querySelector('.toggle-details');
+                            if (toggleButton) {{
+                                toggleButton.textContent = 'Show Details';
+                            }}
+                        }}
+                    }});
+                }}
+                
+                // Dataset filter functionality
+                const datasetFilterButtons = document.querySelectorAll('.dataset-filter');
+                datasetFilterButtons.forEach(button => {{
                     button.addEventListener('click', function() {{
                         const dataset = this.getAttribute('data-dataset');
+                        activeDataset = dataset;
                         
                         // Update active button
-                        filterButtons.forEach(btn => btn.classList.remove('active'));
+                        datasetFilterButtons.forEach(btn => btn.classList.remove('active'));
                         this.classList.add('active');
                         
-                        // Show/hide rows based on dataset
-                        allRows.forEach(row => {{
-                            if (dataset === 'all') {{
-                                row.style.display = '';
-                            }} else {{
-                                const rowDataset = row.getAttribute('data-dataset');
-                                row.style.display = (rowDataset === dataset) ? '' : 'none';
-                            }}
-                        }});
+                        applyFilters();
+                    }});
+                }});
+                
+                // Repository filter functionality
+                const repoFilterButtons = document.querySelectorAll('.repo-filter');
+                repoFilterButtons.forEach(button => {{
+                    button.addEventListener('click', function() {{
+                        const repo = this.getAttribute('data-repo');
+                        activeRepo = repo;
+                        
+                        // Update active button
+                        repoFilterButtons.forEach(btn => btn.classList.remove('active'));
+                        this.classList.add('active');
+                        
+                        applyFilters();
+                    }});
+                }});
+                
+                // Contribution type filter functionality
+                const typeFilterButtons = document.querySelectorAll('.type-filter');
+                typeFilterButtons.forEach(button => {{
+                    button.addEventListener('click', function() {{
+                        const type = this.getAttribute('data-type');
+                        activeType = type;
+                        
+                        // Update active button
+                        typeFilterButtons.forEach(btn => btn.classList.remove('active'));
+                        this.classList.add('active');
+                        
+                        applyFilters();
                     }});
                 }});
                 
@@ -547,12 +601,30 @@ def create_html_report(processed_data, output_dir):
                 searchInput.addEventListener('keyup', function() {{
                     const searchValue = this.value.toLowerCase();
                     
+                    if (searchValue === '') {{
+                        // If search is empty, just apply the current filters
+                        applyFilters();
+                        return;
+                    }}
+                    
                     allRows.forEach(row => {{
                         const text = row.textContent.toLowerCase();
-                        if (text.includes(searchValue)) {{
-                            row.style.display = '';
-                        }} else {{
-                            row.style.display = 'none';
+                        // Check if text matches search AND passes all current filters
+                        const matchesSearch = text.includes(searchValue);
+                        const passesDataset = (activeDataset === 'all' || row.getAttribute('data-dataset') === activeDataset);
+                        const passesRepo = (activeRepo === 'all' || row.getAttribute('data-repo') === activeRepo);
+                        const passesType = (activeType === 'all' || (row.getAttribute('data-types') && row.getAttribute('data-types').includes(activeType)));
+                        
+                        row.style.display = (matchesSearch && passesDataset && passesRepo && passesType) ? '' : 'none';
+                        
+                        // Hide details rows when filtering
+                        const detailsRow = row.nextElementSibling;
+                        if (detailsRow && detailsRow.classList.contains('details-row')) {{
+                            detailsRow.style.display = 'none';
+                            const toggleButton = row.querySelector('.toggle-details');
+                            if (toggleButton) {{
+                                toggleButton.textContent = 'Show Details';
+                            }}
                         }}
                     }});
                 }});
@@ -686,6 +758,35 @@ def create_html_report(processed_data, output_dir):
     html_content += """
         </div>
         
+        <div class="filter-controls">
+            <h3>Filter by Repository:</h3>
+            <button class="repo-filter active" data-repo="all">All Repositories</button>
+    """
+    
+    # Add buttons for top repositories (limit to top 10 to avoid clutter)
+    for repo, count in sorted(processed_data['repo_counts'].items(), key=lambda x: x[1], reverse=True)[:10]:
+        html_content += f"""
+            <button class="repo-filter" data-repo="{repo}">{repo}</button>
+        """
+    
+    html_content += """
+        </div>
+        
+        <div class="filter-controls">
+            <h3>Filter by Contribution Type:</h3>
+            <button class="type-filter active" data-type="all">All Types</button>
+    """
+    
+    # Add buttons for each contribution type
+    for contrib_type in processed_data['type_counts'].keys():
+        formatted_type = format_contribution_type(contrib_type)
+        html_content += f"""
+            <button class="type-filter" data-type="{contrib_type}">{formatted_type}</button>
+        """
+    
+    html_content += """
+        </div>
+        
         <div class="search-container">
             <input type="text" id="searchInput" placeholder="Search issues by title, repo, or contribution type...">
         </div>
@@ -744,8 +845,11 @@ def create_html_report(processed_data, output_dir):
         problem = result.get('dataset_info', {}).get('problem_statement', 'No problem statement')
         hints = result.get('dataset_info', {}).get('hints_text', 'No hints')
         
+        # Create a data attribute with all contribution types for filtering
+        contrib_types_attr = " ".join(contribution_types)
+        
         html_content += f"""
-            <tr class="repo-row" data-dataset="{dataset}">
+            <tr class="repo-row" data-dataset="{dataset}" data-repo="{repo}" data-types="{contrib_types_attr}">
                 <td>{repo}</td>
                 <td><a href="{url}" target="_blank">{title}</a></td>
                 <td>{types_str}</td>
