@@ -41,7 +41,7 @@ def format_contribution_type(contribution_type):
 
     # Handle special types
     type_map = {
-        "author": "Issue Author",
+        "author": "PR Author",
         "pr_author": "PR Author",
         "commenter": "Commenter",
         "dataset_commenter": "Dataset Comment Contributor",
