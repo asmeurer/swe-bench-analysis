@@ -15,6 +15,7 @@ This sample shows my personal contribution data, including:
 
 You can run this tool on your own GitHub username to generate similar visualizations for your SWE-bench contributions!
 
+
 ## Overview
 
 This repository contains two main components:
@@ -42,6 +43,42 @@ The analyzer can operate in two modes:
   - Repository and contribution type heatmaps
   - Dataset comparisons
 - **Exportable HTML reports** for easy sharing and presenting results
+
+## About the SWE-bench Datasets
+
+SWE-bench is a benchmark dataset created by Princeton NLP to evaluate language models on real-world software engineering tasks.
+
+- **SWE-bench**: 2,294 real-world GitHub Issue-Pull Request pairs from 12 popular Python repositories including sympy, scikit-learn, matplotlib, pandas, and more. Each instance contains an issue description, code context, and a corresponding PR that fixes the issue.
+
+- **SWE-bench-verified**: 500 human-validated samples from the full dataset, carefully selected and verified to ensure high-quality examples.
+
+### Dataset Structure
+
+Each SWE-bench instance includes:
+- `instance_id`: A unique identifier in the format `{repo_name}__{issue_number}` (e.g., "sympy__sympy-11400")
+- `repo`: The GitHub repository path (e.g., "sympy/sympy")
+- `problem_statement`: The original issue description from GitHub
+- `hints_text`: Comments and discussion from the GitHub issue that provide guidance
+- Other metadata such as creation date, URL, and code context
+
+Example instance:
+```json
+{
+  "instance_id": "sympy__sympy-11400",
+  "repo": "sympy/sympy",
+  "title": "ccode(sinc(x)) doesn't work",
+  "url": "https://github.com/sympy/sympy/issues/11400",
+  "created_at": "2016-07-15T21:40:49Z",
+  "problem_statement": "ccode(sinc(x)) doesn't work\n...",
+  "hints_text": "The relevant file is sympy/printing/ccode.py\n..."
+}
+```
+
+The datasets can be downloaded from Hugging Face:
+- [princeton-nlp/SWE-bench](https://huggingface.co/datasets/princeton-nlp/SWE-bench)
+- [princeton-nlp/SWE-bench_Verified](https://huggingface.co/datasets/princeton-nlp/SWE-bench_Verified)
+
+The SWE-bench Contributor Analyzer helps you identify instances in these datasets where you've contributed as an author, commenter, or are mentioned in the issue/PR.
 
 ## Installation
 
@@ -330,46 +367,10 @@ If the script can't download the datasets:
 2. Try specifying a different cache directory with `--cache-dir`
 3. Download the datasets manually and provide the file path with `--dataset`
 
-## About the SWE-bench Datasets
-
-SWE-bench is a benchmark dataset created by Princeton NLP to evaluate language models on real-world software engineering tasks.
-
-- **SWE-bench**: 2,294 real-world GitHub Issue-Pull Request pairs from 12 popular Python repositories including sympy, scikit-learn, matplotlib, pandas, and more. Each instance contains an issue description, code context, and a corresponding PR that fixes the issue.
-
-- **SWE-bench-verified**: 500 human-validated samples from the full dataset, carefully selected and verified to ensure high-quality examples.
-
-### Dataset Structure
-
-Each SWE-bench instance includes:
-- `instance_id`: A unique identifier in the format `{repo_name}__{issue_number}` (e.g., "sympy__sympy-11400")
-- `repo`: The GitHub repository path (e.g., "sympy/sympy")
-- `problem_statement`: The original issue description from GitHub
-- `hints_text`: Comments and discussion from the GitHub issue that provide guidance
-- Other metadata such as creation date, URL, and code context
-
-Example instance:
-```json
-{
-  "instance_id": "sympy__sympy-11400",
-  "repo": "sympy/sympy",
-  "title": "ccode(sinc(x)) doesn't work",
-  "url": "https://github.com/sympy/sympy/issues/11400",
-  "created_at": "2016-07-15T21:40:49Z",
-  "problem_statement": "ccode(sinc(x)) doesn't work\n...",
-  "hints_text": "The relevant file is sympy/printing/ccode.py\n..."
-}
-```
-
-The datasets can be downloaded from Hugging Face:
-- [princeton-nlp/SWE-bench](https://huggingface.co/datasets/princeton-nlp/SWE-bench)
-- [princeton-nlp/SWE-bench_Verified](https://huggingface.co/datasets/princeton-nlp/SWE-bench_Verified)
-
-The SWE-bench Contributor Analyzer helps you identify instances in these datasets where you've contributed as an author, commenter, or are mentioned in the issue/PR.
-
 ## License
 
 This script is provided as-is under the MIT License.
 
 ## Acknowledgements
 
-This entire project, including both the analyzer and visualization code, was generated with [Claude Code](https://claude.ai/code) with some initial help from [Grok DeepSearch](https://grok.x.ai/) to explore the SWE-bench dataset structure. The visualizations, data processing logic, and GitHub API integration were all created through conversations with Claude.
+This entire project, including both the analyzer and visualization code, was generated with [Claude Code](https://claude.ai/code) with some initial help from [Grok DeepSearch](https://grok.com/) to explore the SWE-bench dataset structure. The visualizations, data processing logic, and GitHub API integration were all created through conversations with Claude.
