@@ -162,7 +162,7 @@ def create_visualizations(processed_data, output_dir=None):
     plt.tight_layout()
 
     if output_dir:
-        plt.savefig(os.path.join(output_dir, 'top_repositories.png'))
+        plt.savefig(os.path.join(output_dir, 'top_repositories.svg'))
         plt.close()
     else:
         plt.show()
@@ -209,7 +209,7 @@ def create_visualizations(processed_data, output_dir=None):
     if output_dir:
         # Add extra padding to ensure the legend fits when saved
         plt.tight_layout(pad=4.0, rect=[0, 0, 0.85, 1])
-        plt.savefig(os.path.join(output_dir, 'contribution_types.png'), bbox_inches='tight')
+        plt.savefig(os.path.join(output_dir, 'contribution_types.svg'), bbox_inches='tight')
         plt.close()
     else:
         plt.tight_layout(pad=4.0, rect=[0, 0, 0.85, 1])
@@ -239,7 +239,7 @@ def create_visualizations(processed_data, output_dir=None):
         plt.tight_layout()
 
         if output_dir:
-            plt.savefig(os.path.join(output_dir, 'contributions_timeline.png'))
+            plt.savefig(os.path.join(output_dir, 'contributions_timeline.svg'))
             plt.close()
         else:
             plt.show()
@@ -259,7 +259,7 @@ def create_visualizations(processed_data, output_dir=None):
         plt.title(f"Distribution of Contributions Across Datasets")
 
         if output_dir:
-            plt.savefig(os.path.join(output_dir, 'dataset_distribution.png'))
+            plt.savefig(os.path.join(output_dir, 'dataset_distribution.svg'))
             plt.close()
         else:
             plt.show()
@@ -287,7 +287,7 @@ def create_visualizations(processed_data, output_dir=None):
     plt.tight_layout()
 
     if output_dir:
-        plt.savefig(os.path.join(output_dir, 'repo_type_heatmap.png'))
+        plt.savefig(os.path.join(output_dir, 'repo_type_heatmap.svg'))
         plt.close()
     else:
         plt.show()
@@ -309,7 +309,7 @@ def create_visualizations(processed_data, output_dir=None):
         plt.tight_layout()
 
         if output_dir:
-            plt.savefig(os.path.join(output_dir, 'annual_contributions.png'))
+            plt.savefig(os.path.join(output_dir, 'annual_contributions.svg'))
             plt.close()
         else:
             plt.show()
@@ -689,12 +689,12 @@ def create_html_report(processed_data, output_dir):
 
         <div class="visualization">
             <h3>Top Repositories</h3>
-            <img src="top_repositories.png" alt="Top Repositories">
+            <img src="top_repositories.svg" alt="Top Repositories">
         </div>
 
         <div class="visualization">
             <h3>Contribution Types Distribution</h3>
-            <img src="contribution_types.png" alt="Contribution Types">
+            <img src="contribution_types.svg" alt="Contribution Types">
         </div>
     """
 
@@ -702,7 +702,7 @@ def create_html_report(processed_data, output_dir):
         html_content += """
         <div class="visualization">
             <h3>Timeline of Contributions</h3>
-            <img src="contributions_timeline.png" alt="Timeline">
+            <img src="contributions_timeline.svg" alt="Timeline">
         </div>
         """
 
@@ -710,7 +710,7 @@ def create_html_report(processed_data, output_dir):
         html_content += """
         <div class="visualization">
             <h3>Annual Contributions</h3>
-            <img src="annual_contributions.png" alt="Annual Contributions">
+            <img src="annual_contributions.svg" alt="Annual Contributions">
         </div>
         """
 
@@ -718,14 +718,14 @@ def create_html_report(processed_data, output_dir):
         html_content += """
         <div class="visualization">
             <h3>Dataset Distribution</h3>
-            <img src="dataset_distribution.png" alt="Dataset Distribution">
+            <img src="dataset_distribution.svg" alt="Dataset Distribution">
         </div>
         """
 
     html_content += """
         <div class="visualization">
             <h3>Contribution Types by Repository (Heatmap)</h3>
-            <img src="repo_type_heatmap.png" alt="Heatmap">
+            <img src="repo_type_heatmap.svg" alt="Heatmap">
         </div>
 
         <h2>Detailed Repository Breakdown</h2>
