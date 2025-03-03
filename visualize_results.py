@@ -41,6 +41,7 @@ def format_contribution_type(contribution_type):
 
     # Handle special types
     type_map = {
+        "author": "PR Author",  # Renamed to be clearer
         "pr_author": "PR Author",
         "commenter": "Commenter",
         "dataset_commenter": "Dataset Comment Contributor",
@@ -527,7 +528,11 @@ def create_html_report(processed_data, output_dir):
                         // Check if row passes all filters
                         const passesDataset = (activeDataset === 'all' || rowDataset === activeDataset);
                         const passesRepo = (activeRepo === 'all' || rowRepo === activeRepo);
-                        const passesType = (activeType === 'all' || (rowTypes && rowTypes.includes(activeType)));
+                        // Use word boundary to ensure precise matches for types like "author" vs "issue_author"
+                        const passesType = (activeType === 'all' || 
+                                          (rowTypes && (rowTypes.split(' ').includes(activeType) || 
+                                           // Special case for backward compatibility
+                                           (activeType === 'pr_author' && rowTypes.split(' ').includes('author')))));
 
                         // Display row only if it passes all filters
                         const isVisible = (passesDataset && passesRepo && passesType);
@@ -632,7 +637,11 @@ def create_html_report(processed_data, output_dir):
                         const matchesSearch = text.includes(searchValue);
                         const passesDataset = (activeDataset === 'all' || row.getAttribute('data-dataset') === activeDataset);
                         const passesRepo = (activeRepo === 'all' || row.getAttribute('data-repo') === activeRepo);
-                        const passesType = (activeType === 'all' || (row.getAttribute('data-types') && row.getAttribute('data-types').includes(activeType)));
+                        const rowTypes = row.getAttribute('data-types');
+                        const passesType = (activeType === 'all' || 
+                                          (rowTypes && (rowTypes.split(' ').includes(activeType) || 
+                                           // Special case for backward compatibility
+                                           (activeType === 'pr_author' && rowTypes.split(' ').includes('author')))));
 
                         const isVisible = (matchesSearch && passesDataset && passesRepo && passesType);
                         row.style.display = isVisible ? '' : 'none';
@@ -800,11 +809,24 @@ def create_html_report(processed_data, output_dir):
     """
 
     # Add buttons for each contribution type
+    # Use a set to track which formatted labels we've already added
+    added_formatted_types = set()
+    
     for contrib_type in processed_data['type_counts'].keys():
         formatted_type = format_contribution_type(contrib_type)
+        
+        # Skip if we already added a button with this formatted label
+        if formatted_type in added_formatted_types:
+            continue
+            
+        # For PR Author, ensure we use pr_author as the data-type since 
+        # we've special-cased that in the filter logic
+        data_type = "pr_author" if formatted_type == "PR Author" else contrib_type
+        
         html_content += f"""
-            <button class="type-filter" data-type="{contrib_type}">{formatted_type}</button>
+            <button class="type-filter" data-type="{data_type}">{formatted_type}</button>
         """
+        added_formatted_types.add(formatted_type)
 
     html_content += """
         </div>
