@@ -1,17 +1,19 @@
 # SWE-bench Contributor Analyzer
 
-A tool for analyzing the SWE-bench and SWE-bench-verified datasets to identify GitHub issues and pull requests that you have contributed to, with comprehensive visualization of results.
+A tool for analyzing the SWE-bench and SWE-bench-verified datasets to identify GitHub issues and pull requests that any developer has contributed to, with comprehensive visualization of results. You can use this tool to discover your own contributions to codebases in the SWE-bench datasets.
 
-## 📊 Visualizations
+## 📊 Sample Visualizations
 
-**[View the interactive report and visualizations](https://asmeurer.github.io/swe-bench-analysis/docs/report.html)** to see contribution breakdowns by repository, type, and timeline.
+**[View my personal SWE-bench contribution report](https://asmeurer.github.io/swe-bench-analysis/docs/report.html)** to see an example of the visualization output from this tool.
 
-The visualizations show:
+This sample shows my personal contribution data, including:
 - Distribution of contributions by repository
 - Contribution types (issue author, PR author, commenter)
 - Timeline of contributions over time
 - Repository-type correlation heatmaps
 - Detailed list of all contributions with links to GitHub
+
+You can run this tool on your own GitHub username to generate similar visualizations for your SWE-bench contributions!
 
 ## Overview
 
