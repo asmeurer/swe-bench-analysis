@@ -887,7 +887,7 @@ def main():
     parser = argparse.ArgumentParser(description='Visualize SWE-bench analyzer results')
     parser.add_argument('--input', default='user_contributions.json',
                       help='Input JSON file from swebench_analyzer.py (default: user_contributions.json)')
-    parser.add_argument('--output-dir', default='visualizations',
+    parser.add_argument('--output-dir', '-o', default='visualizations',
                       help='Directory to save visualizations (default: visualizations)')
     parser.add_argument('--show', action='store_true',
                       help='Show visualizations instead of saving to files')
