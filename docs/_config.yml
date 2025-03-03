@@ -1,1 +1,3 @@
-theme: jekyll-theme-cayman
+theme: minima
+title: SWE-bench Analysis
+description: Analysis of SWE-bench dataset
