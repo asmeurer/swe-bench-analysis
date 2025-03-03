@@ -15,6 +15,11 @@
             h1, h2, h3 {
                 color: #2c3e50;
             }
+            #entries-count {
+                margin: 10px 0;
+                font-weight: bold;
+                color: #2c3e50;
+            }
             .container {
                 display: flex;
                 flex-wrap: wrap;
@@ -161,8 +166,14 @@
                 let activeRepo = 'all';
                 let activeType = 'all';
 
+                // Set initial count values
+                document.getElementById('total-count').textContent = allRows.length;
+                document.getElementById('visible-count').textContent = allRows.length;
+
                 // Helper function to apply all filters
                 function applyFilters() {
+                    let visibleCount = 0;
+
                     allRows.forEach(row => {
                         // Get row attributes
                         const rowDataset = row.getAttribute('data-dataset');
@@ -172,10 +183,18 @@
                         // Check if row passes all filters
                         const passesDataset = (activeDataset === 'all' || rowDataset === activeDataset);
                         const passesRepo = (activeRepo === 'all' || rowRepo === activeRepo);
-                        const passesType = (activeType === 'all' || (rowTypes && rowTypes.includes(activeType)));
+                        // Use word boundary to ensure precise matches for types like "author" vs "issue_author"
+                        const passesType = (activeType === 'all' || 
+                                          (rowTypes && (rowTypes.split(' ').includes(activeType) || 
+                                           // Special case for backward compatibility
+                                           (activeType === 'pr_author' && rowTypes.split(' ').includes('author')))));
 
                         // Display row only if it passes all filters
-                        row.style.display = (passesDataset && passesRepo && passesType) ? '' : 'none';
+                        const isVisible = (passesDataset && passesRepo && passesType);
+                        row.style.display = isVisible ? '' : 'none';
+
+                        // Count visible rows
+                        if (isVisible) visibleCount++;
 
                         // Hide details rows when filtering
                         const detailsRow = row.nextElementSibling;
@@ -187,6 +206,9 @@
                             }
                         }
                     });
+
+                    // Update the count display
+                    document.getElementById('visible-count').textContent = visibleCount;
                 }
 
                 // Dataset filter functionality
@@ -262,15 +284,25 @@
                         return;
                     }
 
+                    let visibleCount = 0;
+
                     allRows.forEach(row => {
                         const text = row.textContent.toLowerCase();
                         // Check if text matches search AND passes all current filters
                         const matchesSearch = text.includes(searchValue);
                         const passesDataset = (activeDataset === 'all' || row.getAttribute('data-dataset') === activeDataset);
                         const passesRepo = (activeRepo === 'all' || row.getAttribute('data-repo') === activeRepo);
-                        const passesType = (activeType === 'all' || (row.getAttribute('data-types') && row.getAttribute('data-types').includes(activeType)));
+                        const rowTypes = row.getAttribute('data-types');
+                        const passesType = (activeType === 'all' || 
+                                          (rowTypes && (rowTypes.split(' ').includes(activeType) || 
+                                           // Special case for backward compatibility
+                                           (activeType === 'pr_author' && rowTypes.split(' ').includes('author')))));
 
-                        row.style.display = (matchesSearch && passesDataset && passesRepo && passesType) ? '' : 'none';
+                        const isVisible = (matchesSearch && passesDataset && passesRepo && passesType);
+                        row.style.display = isVisible ? '' : 'none';
+
+                        // Count visible rows
+                        if (isVisible) visibleCount++;
 
                         // Hide details rows when filtering
                         const detailsRow = row.nextElementSibling;
@@ -282,13 +314,16 @@
                             }
                         }
                     });
+
+                    // Update the count display
+                    document.getElementById('visible-count').textContent = visibleCount;
                 });
             });
         </script>
     </head>
     <body>
         <h1>SWE-bench Analysis for asmeurer</h1>
-        <p>Generated on 2025-03-03 12:20:57</p>
+        <p>Generated on 2025-03-03 13:01:07</p>
 
         <div class="container">
             <div class="stat-box">
@@ -404,7 +439,7 @@
             </tr>
         
             <tr>
-                <td>Issue Author</td>
+                <td>PR Author</td>
                 <td>37</td>
                 <td>12.1%</td>
             </tr>
@@ -461,7 +496,7 @@
         
             <button class="type-filter" data-type="mentioned_in_hints">Mentioned In Hints</button>
         
-            <button class="type-filter" data-type="author">Issue Author</button>
+            <button class="type-filter" data-type="pr_author">PR Author</button>
         
             <button class="type-filter" data-type="dataset_commenter">Dataset Commenter</button>
         
@@ -473,6 +508,8 @@
             <input type="text" id="searchInput" placeholder="Search issues by title, repo, or contribution type...">
         </div>
 
+        <div id="entries-count">Showing all <span id="visible-count">0</span> of <span id="total-count">0</span> entries</div>
+
         <table id="contributions-table">
             <tr>
                 <th>Repository</th>
@@ -483,10 +520,10 @@
                 <th>Actions</th>
             </tr>
     
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="numpy/numpy" data-types="issue_author issue_dataset_commenter">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="numpy/numpy" data-types="issue_dataset_commenter issue_author">
                 <td>numpy/numpy</td>
                 <td><a href="https://github.com/numpy/numpy/pull/23955" target="_blank">ENH: Add array API standard v2022.12 support to numpy.array_api</a></td>
-                <td>Issue Author, Issue Dataset Commenter</td>
+                <td>Issue Dataset Commenter, Issue Author</td>
                 <td>Jun 15, 2023</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -521,10 +558,10 @@ This is *only* `numpy.array_api`. I'll work to get something ASAP (is there a br
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="numpy/numpy" data-types="issue_author author issue_dataset_commenter">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="numpy/numpy" data-types="issue_dataset_commenter issue_author author">
                 <td>numpy/numpy</td>
                 <td><a href="https://github.com/numpy/numpy/pull/23881" target="_blank">ENH: Add array API standard v2022.12 support to numpy.array_api</a></td>
-                <td>Issue Author, Issue Author, Issue Dataset Commenter</td>
+                <td>Issue Dataset Commenter, Issue Author, PR Author</td>
                 <td>Jun 05, 2023</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -1528,18 +1565,18 @@ Does the sphinx org accept bounties for issues?
     <h4>Related Issues</h4>
     <ul class="related-issues">
     
-        <li><a href="https://github.com/sphinx-doc/sphinx/issues/6316" target="_blank">#6316: Create a ToC entry for every function, method, class, etc</a></li>
-        
         <li><a href="https://github.com/sphinx-doc/sphinx/issues/10804" target="_blank">#10804: automodule places members under docstring headers</a></li>
+        
+        <li><a href="https://github.com/sphinx-doc/sphinx/issues/6316" target="_blank">#6316: Create a ToC entry for every function, method, class, etc</a></li>
         </ul>
                     </div>
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_author issue_dataset_commenter">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_dataset_commenter issue_author">
                 <td>sympy/sympy</td>
                 <td><a href="https://github.com/sympy/sympy/pull/23950" target="_blank">feat: support Contains.as_set</a></td>
-                <td>Issue Author, Issue Dataset Commenter</td>
+                <td>Issue Dataset Commenter, Issue Author</td>
                 <td>Aug 20, 2022</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -1597,10 +1634,10 @@ But yes, a false Boolean should give the empty set. I think if we return the gen
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench-verified" data-repo="sympy/sympy" data-types="issue_author issue_dataset_commenter">
+            <tr class="repo-row" data-dataset="swe-bench-verified" data-repo="sympy/sympy" data-types="issue_dataset_commenter issue_author">
                 <td>sympy/sympy</td>
                 <td><a href="https://github.com/sympy/sympy/pull/23950" target="_blank">feat: support Contains.as_set</a></td>
-                <td>Issue Author, Issue Dataset Commenter</td>
+                <td>Issue Dataset Commenter, Issue Author</td>
                 <td>Aug 20, 2022</td>
                 <td><span class="badge badge-verified">Verified</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -1658,10 +1695,10 @@ But yes, a false Boolean should give the empty set. I think if we return the gen
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="numpy/numpy" data-types="issue_author issue_dataset_commenter mentioned_in_hints">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="numpy/numpy" data-types="issue_dataset_commenter issue_author mentioned_in_hints">
                 <td>numpy/numpy</td>
                 <td><a href="https://github.com/numpy/numpy/pull/21512" target="_blank">DOC: Proposal - make the doc landing page cards more similar to scipy</a></td>
-                <td>Issue Author, Issue Dataset Commenter, Mentioned In Hints</td>
+                <td>Issue Dataset Commenter, Issue Author, Mentioned In Hints</td>
                 <td>May 15, 2022</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -1727,10 +1764,10 @@ The page seems much more cleaner in the preview! I didn't knew that there was al
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="numpy/numpy" data-types="issue_author issue_dataset_commenter mentioned_in_hints">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="numpy/numpy" data-types="issue_dataset_commenter issue_author mentioned_in_hints">
                 <td>numpy/numpy</td>
                 <td><a href="https://github.com/numpy/numpy/pull/21491" target="_blank">DOC: Proposal - make the doc landing page cards more similar to scipy</a></td>
-                <td>Issue Author, Issue Dataset Commenter, Mentioned In Hints</td>
+                <td>Issue Dataset Commenter, Issue Author, Mentioned In Hints</td>
                 <td>May 11, 2022</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -1918,9 +1955,9 @@ The LaTeX printer ought to be using \left and \right for parentheses. </pre>
     <h4>Related Issues</h4>
     <ul class="related-issues">
     
-        <li><a href="https://github.com/sympy/sympy/issues/23058" target="_blank">#23058: display bug while using pretty_print with sympy.vector object in the terminal</a></li>
-        
         <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
+        
+        <li><a href="https://github.com/sympy/sympy/issues/23058" target="_blank">#23058: display bug while using pretty_print with sympy.vector object in the terminal</a></li>
         </ul>
                     </div>
                 </td>
@@ -1929,7 +1966,7 @@ The LaTeX printer ought to be using \left and \right for parentheses. </pre>
             <tr class="repo-row" data-dataset="swe-bench" data-repo="numpy/numpy" data-types="issue_author author">
                 <td>numpy/numpy</td>
                 <td><a href="https://github.com/numpy/numpy/pull/21084" target="_blank">MAINT: Fix computation of numpy.array_api.linalg.vector_norm</a></td>
-                <td>Issue Author, Issue Author</td>
+                <td>Issue Author, PR Author</td>
                 <td>Feb 18, 2022</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -2341,7 +2378,7 @@ In this specific case using `a.mT` instead would work as expected
             <tr class="repo-row" data-dataset="swe-bench" data-repo="numpy/numpy" data-types="author mentioned_in_hints">
                 <td>numpy/numpy</td>
                 <td><a href="https://github.com/numpy/numpy/pull/20499" target="_blank">BUG: Fix the .T attribute in the array_api namespace</a></td>
-                <td>Issue Author, Mentioned In Hints</td>
+                <td>PR Author, Mentioned In Hints</td>
                 <td>Dec 01, 2021</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -2613,9 +2650,9 @@ The `pycode` issue is still not correct though.</pre>
     <h4>Related Issues</h4>
     <ul class="related-issues">
     
-        <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
-        
         <li><a href="https://github.com/sympy/sympy/issues/17737" target="_blank">#17737: Mod function lambdify bug</a></li>
+        
+        <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
         </ul>
                     </div>
                 </td>
@@ -2710,9 +2747,9 @@ The `pycode` issue is still not correct though.</pre>
     <h4>Related Issues</h4>
     <ul class="related-issues">
     
-        <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
-        
         <li><a href="https://github.com/sympy/sympy/issues/17737" target="_blank">#17737: Mod function lambdify bug</a></li>
+        
+        <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
         </ul>
                     </div>
                 </td>
@@ -2814,11 +2851,11 @@ I will takeover and come up with a PR soon.</pre>
     <h4>Related Issues</h4>
     <ul class="related-issues">
     
-        <li><a href="https://github.com/sympy/sympy/pull/12399" target="_blank">#12399: Updated _eval_is_odd to handle more complex inputs</a></li>
-        
         <li><a href="https://github.com/sympy/sympy/issues/8648" target="_blank">#8648: If n is even, n**2/2 should also be even</a></li>
         
         <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
+        
+        <li><a href="https://github.com/sympy/sympy/pull/12399" target="_blank">#12399: Updated _eval_is_odd to handle more complex inputs</a></li>
         </ul>
                     </div>
                 </td>
@@ -2869,9 +2906,9 @@ Is it really necessary for FiniteSet to ever print as "FiniteSet" instead of usi
     <h4>Related Issues</h4>
     <ul class="related-issues">
     
-        <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
-        
         <li><a href="https://github.com/sympy/sympy/issues/21823" target="_blank">#21823: nicer printing of Permutation (and others)</a></li>
+        
+        <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
         </ul>
                     </div>
                 </td>
@@ -2960,9 +2997,9 @@ Related issues: #19661 and #20959
     <h4>Related Issues</h4>
     <ul class="related-issues">
     
-        <li><a href="https://github.com/sympy/sympy/issues/18781" target="_blank">#18781: CG() docs are wrong?</a></li>
-        
         <li><a href="https://github.com/sympy/sympy/issues/21001" target="_blank">#21001: Latex repr of CG with power does not render correctly</a></li>
+        
+        <li><a href="https://github.com/sympy/sympy/issues/18781" target="_blank">#18781: CG() docs are wrong?</a></li>
         </ul>
                     </div>
                 </td>
@@ -3154,9 +3191,9 @@ index a74e3a6540..2506663c02 100644
     <h4>Related Issues</h4>
     <ul class="related-issues">
     
-        <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
-        
         <li><a href="https://github.com/sympy/sympy/issues/19501" target="_blank">#19501: parse_expr with local_dict</a></li>
+        
+        <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
         </ul>
                     </div>
                 </td>
@@ -3379,9 +3416,9 @@ This is a bug. They should both work properly. It looks like there is a regular 
     <h4>Related Issues</h4>
     <ul class="related-issues">
     
-        <li><a href="https://github.com/sympy/sympy/issues/19005" target="_blank">#19005: pprint unicode does not format subscripts on Greek letters</a></li>
-        
         <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
+        
+        <li><a href="https://github.com/sympy/sympy/issues/19005" target="_blank">#19005: pprint unicode does not format subscripts on Greek letters</a></li>
         </ul>
                     </div>
                 </td>
@@ -3440,9 +3477,9 @@ This is a bug. They should both work properly. It looks like there is a regular 
     <h4>Related Issues</h4>
     <ul class="related-issues">
     
-        <li><a href="https://github.com/sympy/sympy/issues/19005" target="_blank">#19005: pprint unicode does not format subscripts on Greek letters</a></li>
-        
         <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
+        
+        <li><a href="https://github.com/sympy/sympy/issues/19005" target="_blank">#19005: pprint unicode does not format subscripts on Greek letters</a></li>
         </ul>
                     </div>
                 </td>
@@ -3994,7 +4031,7 @@ Ok. But `e.is_positive` should fix that?</pre>
             <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_author author">
                 <td>sympy/sympy</td>
                 <td><a href="https://github.com/sympy/sympy/pull/20154" target="_blank">Don't reuse the same dictionary in the yielded output of partitions()</a></td>
-                <td>Issue Author, Issue Author</td>
+                <td>Issue Author, PR Author</td>
                 <td>Sep 26, 2020</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -4030,7 +4067,7 @@ I'm wondering if it's really that important for it to do this. It shouldn't be t
             <tr class="repo-row" data-dataset="swe-bench-verified" data-repo="sympy/sympy" data-types="issue_author author">
                 <td>sympy/sympy</td>
                 <td><a href="https://github.com/sympy/sympy/pull/20154" target="_blank">Don't reuse the same dictionary in the yielded output of partitions()</a></td>
-                <td>Issue Author, Issue Author</td>
+                <td>Issue Author, PR Author</td>
                 <td>Sep 26, 2020</td>
                 <td><span class="badge badge-verified">Verified</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -4242,15 +4279,15 @@ Original author: https://code.google.com/u/asmeurer@gmail.com/
     <h4>Related Issues</h4>
     <ul class="related-issues">
     
-        <li><a href="https://github.com/sympy/sympy/issues/6408" target="_blank">#6408: nsolve fails for Integral</a></li>
-        
-        <li><a href="https://github.com/sympy/sympy/issues/4471" target="_blank">#4471: make lambdify to use scipy for integration optionally</a></li>
-        
-        <li><a href="https://github.com/sympy/sympy/issues/5932" target="_blank">#5932: lambdify does not evaluate integrals</a></li>
-        
         <li><a href="https://github.com/sympy/sympy/issues/4470" target="_blank">#4470: use scipy for integrals evaluation</a></li>
         
         <li><a href="https://github.com/sympy/sympy/issues/19641" target="_blank">#19641: Lambdify does not work with Integral</a></li>
+        
+        <li><a href="https://github.com/sympy/sympy/issues/4471" target="_blank">#4471: make lambdify to use scipy for integration optionally</a></li>
+        
+        <li><a href="https://github.com/sympy/sympy/issues/6408" target="_blank">#6408: nsolve fails for Integral</a></li>
+        
+        <li><a href="https://github.com/sympy/sympy/issues/5932" target="_blank">#5932: lambdify does not evaluate integrals</a></li>
         
         <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
         </ul>
@@ -4600,10 +4637,10 @@ I don't want to hijack this conversation any more. I'll open an issue on the sta
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_author issue_dataset_commenter mentioned_in_hints">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_dataset_commenter issue_author mentioned_in_hints">
                 <td>sympy/sympy</td>
                 <td><a href="https://github.com/sympy/sympy/pull/18650" target="_blank">Core: simplification error resolved</a></td>
-                <td>Issue Author, Issue Dataset Commenter, Mentioned In Hints</td>
+                <td>Issue Dataset Commenter, Issue Author, Mentioned In Hints</td>
                 <td>Feb 13, 2020</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -4742,10 +4779,10 @@ I tend to think it should. When Pow passes to Mul for the power-base expansion i
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_author issue_dataset_commenter mentioned_in_hints">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_dataset_commenter issue_author mentioned_in_hints">
                 <td>sympy/sympy</td>
                 <td><a href="https://github.com/sympy/sympy/pull/18532" target="_blank">atoms() method return value updated</a></td>
-                <td>Issue Author, Issue Dataset Commenter, Mentioned In Hints</td>
+                <td>Issue Dataset Commenter, Issue Author, Mentioned In Hints</td>
                 <td>Feb 01, 2020</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -4837,10 +4874,10 @@ I am working on this issue</pre>
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_author issue_dataset_commenter">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_dataset_commenter issue_author">
                 <td>sympy/sympy</td>
                 <td><a href="https://github.com/sympy/sympy/pull/18477" target="_blank">Added min_fixed and max_fixed options for Float in printers</a></td>
-                <td>Issue Author, Issue Dataset Commenter</td>
+                <td>Issue Dataset Commenter, Issue Author</td>
                 <td>Jan 27, 2020</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -5558,18 +5595,18 @@ I've opened #18053 which makes current `Relational` a proper `Boolean` (not a su
     <h4>Related Issues</h4>
     <ul class="related-issues">
     
-        <li><a href="https://github.com/sympy/sympy/issues/4986" target="_blank">#4986: Separate boolean and symbolic relationals</a></li>
-        
         <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
+        
+        <li><a href="https://github.com/sympy/sympy/issues/4986" target="_blank">#4986: Separate boolean and symbolic relationals</a></li>
         </ul>
                     </div>
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="author issue_dataset_commenter">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_dataset_commenter author">
                 <td>sympy/sympy</td>
                 <td><a href="https://github.com/sympy/sympy/pull/18057" target="_blank">Don't allow expressions to compare equal to strings</a></td>
-                <td>Issue Author, Issue Dataset Commenter</td>
+                <td>Issue Dataset Commenter, PR Author</td>
                 <td>Dec 17, 2019</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -5674,9 +5711,9 @@ The thing is, I could have swore this behavior was tested. But I don't see anyth
     <h4>Related Issues</h4>
     <ul class="related-issues">
     
-        <li><a href="https://github.com/sympy/sympy/issues/18056" target="_blank">#18056: Sympy incorrectly attempts to eval reprs in its __eq__ method</a></li>
-        
         <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
+        
+        <li><a href="https://github.com/sympy/sympy/issues/18056" target="_blank">#18056: Sympy incorrectly attempts to eval reprs in its __eq__ method</a></li>
         </ul>
                     </div>
                 </td>
@@ -5725,11 +5762,11 @@ After I change the codes for `pprint()` and `print_latex()`. How do I test it fo
     <h4>Related Issues</h4>
     <ul class="related-issues">
     
+        <li><a href="https://github.com/sympy/sympy/pull/15691" target="_blank">#15691: [WIP] Permutations: Use perm_cyclic flag in pprint/latex to print cyclic notation. print_cyclic is depreciated</a></li>
+        
         <li><a href="https://github.com/sympy/sympy/issues/15201" target="_blank">#15201: Remove Permutation.print_cyclic flag</a></li>
         
         <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
-        
-        <li><a href="https://github.com/sympy/sympy/pull/15691" target="_blank">#15691: [WIP] Permutations: Use perm_cyclic flag in pprint/latex to print cyclic notation. print_cyclic is depreciated</a></li>
         </ul>
                     </div>
                 </td>
@@ -5912,9 +5949,9 @@ This PR should demonstrate the idea.  @asmeurer what do you think?  Will this wo
     <h4>Related Issues</h4>
     <ul class="related-issues">
     
-        <li><a href="https://github.com/sympy/sympy/pull/12162" target="_blank">#12162: Catalan rewrite and doctests for latex equations</a></li>
-        
         <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
+        
+        <li><a href="https://github.com/sympy/sympy/pull/12162" target="_blank">#12162: Catalan rewrite and doctests for latex equations</a></li>
         </ul>
                     </div>
                 </td>
@@ -6034,9 +6071,9 @@ I think to make it work in general `cosh(x).is_positive` should be True. It's st
     
         <li><a href="https://github.com/sympy/sympy/pull/11924" target="_blank">#11924: Modified is_positive for cosh function</a></li>
         
-        <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
-        
         <li><a href="https://github.com/sympy/sympy/issues/11721" target="_blank">#11721: abs(cosh(x)) should simplify to cosh(x) for real x</a></li>
+        
+        <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
         </ul>
                     </div>
                 </td>
@@ -6253,9 +6290,9 @@ Please do not add bare except statements. We should find the source of this issu
     
         <li><a href="https://github.com/sympy/sympy/issues/12420" target="_blank">#12420: sqrtdenest raises IndexError</a></li>
         
-        <li><a href="https://github.com/sympy/sympy/pull/12431" target="_blank">#12431: IndexError fixed for sqrtdenest.</a></li>
-        
         <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
+        
+        <li><a href="https://github.com/sympy/sympy/pull/12431" target="_blank">#12431: IndexError fixed for sqrtdenest.</a></li>
         </ul>
                     </div>
                 </td>
@@ -6410,9 +6447,9 @@ Please do not add bare except statements. We should find the source of this issu
     
         <li><a href="https://github.com/sympy/sympy/issues/12420" target="_blank">#12420: sqrtdenest raises IndexError</a></li>
         
-        <li><a href="https://github.com/sympy/sympy/pull/12431" target="_blank">#12431: IndexError fixed for sqrtdenest.</a></li>
-        
         <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
+        
+        <li><a href="https://github.com/sympy/sympy/pull/12431" target="_blank">#12431: IndexError fixed for sqrtdenest.</a></li>
         </ul>
                     </div>
                 </td>
@@ -6474,9 +6511,9 @@ CC @oscargus </pre>
     <h4>Related Issues</h4>
     <ul class="related-issues">
     
-        <li><a href="https://github.com/sympy/sympy/issues/17184" target="_blank">#17184: printingMathML erroneous</a></li>
-        
         <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
+        
+        <li><a href="https://github.com/sympy/sympy/issues/17184" target="_blank">#17184: printingMathML erroneous</a></li>
         </ul>
                     </div>
                 </td>
@@ -6540,10 +6577,10 @@ The code printer prints `I`, which is currently being interpreted as a Python bu
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_author issue_dataset_commenter">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_dataset_commenter issue_author">
                 <td>sympy/sympy</td>
                 <td><a href="https://github.com/sympy/sympy/pull/17010" target="_blank">Fixed some issues with negative indexes for Laguerre polynomials</a></td>
-                <td>Issue Author, Issue Dataset Commenter</td>
+                <td>Issue Dataset Commenter, Issue Author</td>
                 <td>Jun 11, 2019</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -6619,11 +6656,11 @@ What you are proposing in terms of keeping track of the split point makes sense.
     <h4>Related Issues</h4>
     <ul class="related-issues">
     
-        <li><a href="https://github.com/sympy/sympy/issues/13134" target="_blank">#13134: Some uses of could_extract_minus_sign can lead to infinite recursion</a></li>
+        <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
         
         <li><a href="https://github.com/sympy/sympy/issues/17008" target="_blank">#17008: Laguerre polynomials with negative index</a></li>
         
-        <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
+        <li><a href="https://github.com/sympy/sympy/issues/13134" target="_blank">#13134: Some uses of could_extract_minus_sign can lead to infinite recursion</a></li>
         </ul>
                     </div>
                 </td>
@@ -7181,9 +7218,9 @@ sqrt(2)
     
         <li><a href="https://github.com/sympy/sympy/issues/16769" target="_blank">#16769: sympify does not convert dict to Dict</a></li>
         
-        <li><a href="https://github.com/sympy/sympy/issues/13425" target="_blank">#13425: N(<string>, 30) and sympify: implement a decimal precision kwarg?</a></li>
-        
         <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
+        
+        <li><a href="https://github.com/sympy/sympy/issues/13425" target="_blank">#13425: N(<string>, 30) and sympify: implement a decimal precision kwarg?</a></li>
         </ul>
                     </div>
                 </td>
@@ -7287,11 +7324,11 @@ Somehow, missed your suggestion. Just did a small test. It seems to work very we
     <h4>Related Issues</h4>
     <ul class="related-issues">
     
-        <li><a href="https://github.com/sympy/sympy/issues/12310" target="_blank">#12310: sympy.fps doesn't always return a formal power series</a></li>
-        
         <li><a href="https://github.com/sympy/sympy/pull/13854" target="_blank">#13854: Sympy.fps modified to return a formal power series</a></li>
         
         <li><a href="https://github.com/sympy/sympy/pull/12324" target="_blank">#12324: fix issue #12310</a></li>
+        
+        <li><a href="https://github.com/sympy/sympy/issues/12310" target="_blank">#12310: sympy.fps doesn't always return a formal power series</a></li>
         </ul>
                     </div>
                 </td>
@@ -7467,10 +7504,10 @@ x +     \   |     |  / 2        \   |
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_author issue_dataset_commenter">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_dataset_commenter issue_author">
                 <td>sympy/sympy</td>
                 <td><a href="https://github.com/sympy/sympy/pull/16331" target="_blank">Make var names in generated Cython code unique</a></td>
-                <td>Issue Author, Issue Dataset Commenter</td>
+                <td>Issue Dataset Commenter, Issue Author</td>
                 <td>Mar 19, 2019</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -7632,9 +7669,9 @@ I think the names are useful for introspection and debugging. There is a dummify
     <h4>Related Issues</h4>
     <ul class="related-issues">
     
-        <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
-        
         <li><a href="https://github.com/sympy/sympy/issues/15628" target="_blank">#15628: Issue ufuncifying a two argument function with the Cython backend</a></li>
+        
+        <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
         </ul>
                     </div>
                 </td>
@@ -7878,9 +7915,9 @@ The main compatibility issues for LaTeX are that it should be supported by MathJ
     <h4>Related Issues</h4>
     <ul class="related-issues">
     
-        <li><a href="https://github.com/sympy/sympy/issues/15934" target="_blank">#15934: LaTeX priniting: \mathrm vs. \text</a></li>
-        
         <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
+        
+        <li><a href="https://github.com/sympy/sympy/issues/15934" target="_blank">#15934: LaTeX priniting: \mathrm vs. \text</a></li>
         </ul>
                     </div>
                 </td>
@@ -7922,10 +7959,10 @@ discussion.
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_author author issue_dataset_commenter mentioned_in_hints">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_dataset_commenter issue_author author mentioned_in_hints">
                 <td>sympy/sympy</td>
                 <td><a href="https://github.com/sympy/sympy/pull/15948" target="_blank">Handle matrices in Add and Mul as a postprocessor</a></td>
-                <td>Issue Author, Issue Author, Issue Dataset Commenter, Mentioned In Hints</td>
+                <td>Issue Dataset Commenter, Issue Author, PR Author, Mentioned In Hints</td>
                 <td>Feb 09, 2019</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -8331,15 +8368,15 @@ I tested the merge with your branch locally but it is does not seems to fix the 
     <h4>Related Issues</h4>
     <ul class="related-issues">
     
-        <li><a href="https://github.com/sympy/sympy/issues/15665" target="_blank">#15665: Matrix expressions sometimes gives Add and Mul instead of MatAdd and MatMul</a></li>
+        <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
         
-        <li><a href="https://github.com/sympy/sympy/pull/15692" target="_blank">#15692: Fix of Matrix expressions sometimes gives Add and Mul instead of MatA…</a></li>
+        <li><a href="https://github.com/sympy/sympy/issues/15665" target="_blank">#15665: Matrix expressions sometimes gives Add and Mul instead of MatAdd and MatMul</a></li>
         
         <li><a href="https://github.com/sympy/sympy/issues/15528" target="_blank">#15528: Sympy 1.4.dev - issue with subs</a></li>
         
         <li><a href="https://github.com/sympy/sympy/pull/15666" target="_blank">#15666: Revert "Fixing matrix expressions and poly-tools"</a></li>
         
-        <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
+        <li><a href="https://github.com/sympy/sympy/pull/15692" target="_blank">#15692: Fix of Matrix expressions sometimes gives Add and Mul instead of MatA…</a></li>
         </ul>
                     </div>
                 </td>
@@ -8371,9 +8408,9 @@ Right now `Min()` and `Max()` with no arguments raise `ValueError: The Max/Min f
     <h4>Related Issues</h4>
     <ul class="related-issues">
     
-        <li><a href="https://github.com/sympy/sympy/issues/15808" target="_blank">#15808: Zero-argument Min() and Max()</a></li>
-        
         <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
+        
+        <li><a href="https://github.com/sympy/sympy/issues/15808" target="_blank">#15808: Zero-argument Min() and Max()</a></li>
         </ul>
                     </div>
                 </td>
@@ -8405,9 +8442,9 @@ Right now `Min()` and `Max()` with no arguments raise `ValueError: The Max/Min f
     <h4>Related Issues</h4>
     <ul class="related-issues">
     
-        <li><a href="https://github.com/sympy/sympy/issues/15808" target="_blank">#15808: Zero-argument Min() and Max()</a></li>
-        
         <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
+        
+        <li><a href="https://github.com/sympy/sympy/issues/15808" target="_blank">#15808: Zero-argument Min() and Max()</a></li>
         </ul>
                     </div>
                 </td>
@@ -8537,10 +8574,10 @@ ValueError: expecting x-dependent symbol(s) but got: f(x)
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_author issue_dataset_commenter mentioned_in_hints">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_dataset_commenter issue_author mentioned_in_hints">
                 <td>sympy/sympy</td>
                 <td><a href="https://github.com/sympy/sympy/pull/15635" target="_blank">Printing of Fancy Sets</a></td>
-                <td>Issue Author, Issue Dataset Commenter, Mentioned In Hints</td>
+                <td>Issue Dataset Commenter, Issue Author, Mentioned In Hints</td>
                 <td>Dec 14, 2018</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -8963,9 +9000,9 @@ Tests can be put everywhere. I'd prefer to have them next to the other ones.</pr
     <h4>Related Issues</h4>
     <ul class="related-issues">
     
-        <li><a href="https://github.com/sympy/sympy/issues/15595" target="_blank">#15595: Indexed matrix-expression LaTeX printer is not compilable</a></li>
-        
         <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
+        
+        <li><a href="https://github.com/sympy/sympy/issues/15595" target="_blank">#15595: Indexed matrix-expression LaTeX printer is not compilable</a></li>
         </ul>
                     </div>
                 </td>
@@ -9119,11 +9156,11 @@ Make sure you are in your branch and not master; if you are using Windows and sw
     <h4>Related Issues</h4>
     <ul class="related-issues">
     
-        <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
+        <li><a href="https://github.com/sympy/sympy/issues/15493" target="_blank">#15493: Mod(3*i, 2) unchanged</a></li>
         
         <li><a href="https://github.com/sympy/sympy/pull/15505" target="_blank">#15505: Returns correct result to Mod(3*i, 2).</a></li>
         
-        <li><a href="https://github.com/sympy/sympy/issues/15493" target="_blank">#15493: Mod(3*i, 2) unchanged</a></li>
+        <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
         </ul>
                     </div>
                 </td>
@@ -9277,11 +9314,11 @@ Make sure you are in your branch and not master; if you are using Windows and sw
     <h4>Related Issues</h4>
     <ul class="related-issues">
     
-        <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
+        <li><a href="https://github.com/sympy/sympy/issues/15493" target="_blank">#15493: Mod(3*i, 2) unchanged</a></li>
         
         <li><a href="https://github.com/sympy/sympy/pull/15505" target="_blank">#15505: Returns correct result to Mod(3*i, 2).</a></li>
         
-        <li><a href="https://github.com/sympy/sympy/issues/15493" target="_blank">#15493: Mod(3*i, 2) unchanged</a></li>
+        <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
         </ul>
                     </div>
                 </td>
@@ -9428,7 +9465,7 @@ primepi(x) is equal to x/ln(x) only in the limit.
             <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="author">
                 <td>sympy/sympy</td>
                 <td><a href="https://github.com/sympy/sympy/pull/15523" target="_blank">Handle NEWLINE changes to the tokenize module</a></td>
-                <td>Issue Author</td>
+                <td>PR Author</td>
                 <td>Nov 21, 2018</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -9546,9 +9583,9 @@ E   TypeError: __new__() missing 1 required positional argument: 'expr'
     <h4>Related Issues</h4>
     <ul class="related-issues">
     
-        <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
-        
         <li><a href="https://github.com/sympy/sympy/issues/15502" target="_blank">#15502: Python 3.7 test failures</a></li>
+        
+        <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
         </ul>
                     </div>
                 </td>
@@ -9731,9 +9768,9 @@ Still checking it out, though.
     <h4>Related Issues</h4>
     <ul class="related-issues">
     
-        <li><a href="https://github.com/sympy/sympy/issues/15344" target="_blank">#15344: mathematica_code gives wrong output with Max</a></li>
-        
         <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
+        
+        <li><a href="https://github.com/sympy/sympy/issues/15344" target="_blank">#15344: mathematica_code gives wrong output with Max</a></li>
         </ul>
                     </div>
                 </td>
@@ -9777,18 +9814,18 @@ Still checking it out, though.
     <h4>Related Issues</h4>
     <ul class="related-issues">
     
-        <li><a href="https://github.com/sympy/sympy/issues/15344" target="_blank">#15344: mathematica_code gives wrong output with Max</a></li>
-        
         <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
+        
+        <li><a href="https://github.com/sympy/sympy/issues/15344" target="_blank">#15344: mathematica_code gives wrong output with Max</a></li>
         </ul>
                     </div>
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_author issue_dataset_commenter">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_dataset_commenter issue_author">
                 <td>sympy/sympy</td>
                 <td><a href="https://github.com/sympy/sympy/pull/15308" target="_blank">Add LaTeX printing for matrix symbol trace</a></td>
-                <td>Issue Author, Issue Dataset Commenter</td>
+                <td>Issue Dataset Commenter, Issue Author</td>
                 <td>Sep 28, 2018</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -10069,11 +10106,11 @@ does this look good to merge now?
     <h4>Related Issues</h4>
     <ul class="related-issues">
     
-        <li><a href="https://github.com/sympy/sympy/issues/6952" target="_blank">#6952: recognize elliptical integrals</a></li>
+        <li><a href="https://github.com/sympy/sympy/issues/2815" target="_blank">#2815: allow arbitrary ellipses</a></li>
         
         <li><a href="https://github.com/sympy/sympy/pull/15053" target="_blank">#15053: Added function for finding equation of Ellipse using slope as parameter and faster method for calculation of circumference of ellipse</a></li>
         
-        <li><a href="https://github.com/sympy/sympy/issues/2815" target="_blank">#2815: allow arbitrary ellipses</a></li>
+        <li><a href="https://github.com/sympy/sympy/issues/6952" target="_blank">#6952: recognize elliptical integrals</a></li>
         </ul>
                     </div>
                 </td>
@@ -10143,7 +10180,7 @@ Is there a need for geometry object apart from line, circle and ellipse via equa
             <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="author mentioned_in_problem">
                 <td>sympy/sympy</td>
                 <td><a href="https://github.com/sympy/sympy/pull/15198" target="_blank">1.3 release branch</a></td>
-                <td>Issue Author, Mentioned In Problem</td>
+                <td>PR Author, Mentioned In Problem</td>
                 <td>Sep 06, 2018</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -10434,9 +10471,9 @@ Hi, I would like to work on this if possible</pre>
     <h4>Related Issues</h4>
     <ul class="related-issues">
     
-        <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
-        
         <li><a href="https://github.com/sympy/sympy/issues/15009" target="_blank">#15009: lambdify does not work with certain MatrixSymbol names even with dummify=True</a></li>
+        
+        <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
         </ul>
                     </div>
                 </td>
@@ -10445,7 +10482,7 @@ Hi, I would like to work on this if possible</pre>
             <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_author author">
                 <td>sympy/sympy</td>
                 <td><a href="https://github.com/sympy/sympy/pull/14976" target="_blank">Print rationals correctly in the mpmath lambdify printer</a></td>
-                <td>Issue Author, Issue Author</td>
+                <td>Issue Author, PR Author</td>
                 <td>Jul 25, 2018</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -10487,9 +10524,9 @@ Originally reported at https://github.com/sympy/sympy/pull/14971
     <h4>Related Issues</h4>
     <ul class="related-issues">
     
-        <li><a href="https://github.com/sympy/sympy/issues/14974" target="_blank">#14974: lambdify(modules='mpmath') doesn't wrap rationals</a></li>
-        
         <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
+        
+        <li><a href="https://github.com/sympy/sympy/issues/14974" target="_blank">#14974: lambdify(modules='mpmath') doesn't wrap rationals</a></li>
         </ul>
                     </div>
                 </td>
@@ -10498,7 +10535,7 @@ Originally reported at https://github.com/sympy/sympy/pull/14971
             <tr class="repo-row" data-dataset="swe-bench-verified" data-repo="sympy/sympy" data-types="issue_author author">
                 <td>sympy/sympy</td>
                 <td><a href="https://github.com/sympy/sympy/pull/14976" target="_blank">Print rationals correctly in the mpmath lambdify printer</a></td>
-                <td>Issue Author, Issue Author</td>
+                <td>Issue Author, PR Author</td>
                 <td>Jul 25, 2018</td>
                 <td><span class="badge badge-verified">Verified</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -10540,9 +10577,9 @@ Originally reported at https://github.com/sympy/sympy/pull/14971
     <h4>Related Issues</h4>
     <ul class="related-issues">
     
-        <li><a href="https://github.com/sympy/sympy/issues/14974" target="_blank">#14974: lambdify(modules='mpmath') doesn't wrap rationals</a></li>
-        
         <li><a href="https://github.com/sympy/sympy/pull/1234" target="_blank">#1234: Fix test failure in beginner/precision.py example</a></li>
+        
+        <li><a href="https://github.com/sympy/sympy/issues/14974" target="_blank">#14974: lambdify(modules='mpmath') doesn't wrap rationals</a></li>
         </ul>
                     </div>
                 </td>
@@ -10649,10 +10686,10 @@ Just to let you know that I uninstalled anaconda and reinstalled it and now it s
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_author issue_dataset_commenter">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_dataset_commenter issue_author">
                 <td>sympy/sympy</td>
                 <td><a href="https://github.com/sympy/sympy/pull/14817" target="_blank">pretty :  used `as_coeff_mmul` instead of .args inside _print_MatAdd</a></td>
-                <td>Issue Author, Issue Dataset Commenter</td>
+                <td>Issue Dataset Commenter, Issue Author</td>
                 <td>Jun 21, 2018</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -10718,10 +10755,10 @@ I don't even understand what the code is doing. Why does it omit the `+` when th
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="conda/conda" data-types="issue_author issue_dataset_commenter">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="conda/conda" data-types="issue_dataset_commenter issue_author">
                 <td>conda/conda</td>
                 <td><a href="https://github.com/conda/conda/pull/7360" target="_blank">fix #7341: constrain tell() return value to [0,filesize]</a></td>
-                <td>Issue Author, Issue Dataset Commenter</td>
+                <td>Issue Dataset Commenter, Issue Author</td>
                 <td>May 31, 2018</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -12129,10 +12166,10 @@ CC @sampadsaha5
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_author author issue_dataset_commenter mentioned_in_hints">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_dataset_commenter issue_author author mentioned_in_hints">
                 <td>sympy/sympy</td>
                 <td><a href="https://github.com/sympy/sympy/pull/14085" target="_blank">Remove the sympy_tokenize module in favor of the standard library tokenize</a></td>
-                <td>Issue Author, Issue Author, Issue Dataset Commenter, Mentioned In Hints</td>
+                <td>Issue Dataset Commenter, Issue Author, PR Author, Mentioned In Hints</td>
                 <td>Feb 05, 2018</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -12459,17 +12496,17 @@ The correct result is `atan(x/y) / y`. It seems similar to #8246.
     <h4>Related Issues</h4>
     <ul class="related-issues">
     
-        <li><a href="https://github.com/sympy/sympy/issues/14080" target="_blank">#14080: Integrate(1/(x**2 + y**2), x) returns a wrong result</a></li>
+        <li><a href="https://github.com/sympy/sympy/issues/8246" target="_blank">#8246: integrate(x / (x**2 + y**2), y) gives incorrectly 0 when x and y are real</a></li>
         
         <li><a href="https://github.com/sympy/sympy/issues/5907" target="_blank">#5907: integrate(1/(x**2 + a**2)**2, x) is wrong if a is real</a></li>
+        
+        <li><a href="https://github.com/sympy/sympy/issues/13501" target="_blank">#13501: Incorrect integral of a rational function with a symbolic coefficient</a></li>
+        
+        <li><a href="https://github.com/sympy/sympy/issues/14080" target="_blank">#14080: Integrate(1/(x**2 + y**2), x) returns a wrong result</a></li>
         
         <li><a href="https://github.com/sympy/sympy/issues/12050" target="_blank">#12050: Incorrect indefinite integral involving inverse trig</a></li>
         
         <li><a href="https://github.com/sympy/sympy/issues/6308" target="_blank">#6308: Wrong result with integral with assumptions</a></li>
-        
-        <li><a href="https://github.com/sympy/sympy/issues/8246" target="_blank">#8246: integrate(x / (x**2 + y**2), y) gives incorrectly 0 when x and y are real</a></li>
-        
-        <li><a href="https://github.com/sympy/sympy/issues/13501" target="_blank">#13501: Incorrect integral of a rational function with a symbolic coefficient</a></li>
         </ul>
                     </div>
                 </td>
@@ -12731,10 +12768,10 @@ There's a way you can pass parameters to the printer. They can be accessed in th
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_author issue_dataset_commenter">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_dataset_commenter issue_author">
                 <td>sympy/sympy</td>
                 <td><a href="https://github.com/sympy/sympy/pull/13852" target="_blank">Implement more special values of polylogarithm, without exp_polar for s=1</a></td>
-                <td>Issue Author, Issue Dataset Commenter</td>
+                <td>Issue Dataset Commenter, Issue Author</td>
                 <td>Jan 06, 2018</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -12807,10 +12844,10 @@ Original author: https://code.google.com/u/asmeurer@gmail.com/
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench-verified" data-repo="sympy/sympy" data-types="issue_author issue_dataset_commenter">
+            <tr class="repo-row" data-dataset="swe-bench-verified" data-repo="sympy/sympy" data-types="issue_dataset_commenter issue_author">
                 <td>sympy/sympy</td>
                 <td><a href="https://github.com/sympy/sympy/pull/13852" target="_blank">Implement more special values of polylogarithm, without exp_polar for s=1</a></td>
-                <td>Issue Author, Issue Dataset Commenter</td>
+                <td>Issue Dataset Commenter, Issue Author</td>
                 <td>Jan 06, 2018</td>
                 <td><span class="badge badge-verified">Verified</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -12971,10 +13008,10 @@ Is there a reason why the user cannot supply the `mul_symbol` of their choosing?
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_author issue_dataset_commenter">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_dataset_commenter issue_author">
                 <td>sympy/sympy</td>
                 <td><a href="https://github.com/sympy/sympy/pull/13773" target="_blank">@/__matmul__ now only performs matrix multiplication</a></td>
-                <td>Issue Author, Issue Dataset Commenter</td>
+                <td>Issue Dataset Commenter, Issue Author</td>
                 <td>Dec 19, 2017</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -13063,9 +13100,9 @@ n not equal 1
     <h4>Related Issues</h4>
     <ul class="related-issues">
     
-        <li><a href="https://github.com/sympy/sympy/issues/13765" target="_blank">#13765: Matrix.dot should be a little less lax for n x m matrices</a></li>
-        
         <li><a href="https://github.com/sympy/sympy/pull/13775" target="_blank">#13775:   fix the dimension mismatches when using (dot)</a></li>
+        
+        <li><a href="https://github.com/sympy/sympy/issues/13765" target="_blank">#13765: Matrix.dot should be a little less lax for n x m matrices</a></li>
         </ul>
                     </div>
                 </td>
@@ -13547,9 +13584,9 @@ Original author: https://code.google.com/u/asmeurer@gmail.com/
     <h4>Related Issues</h4>
     <ul class="related-issues">
     
-        <li><a href="https://github.com/sympy/sympy/issues/6646" target="_blank">#6646: Undefined functions with number arguments should have is_number be False</a></li>
-        
         <li><a href="https://github.com/sympy/sympy/issues/5033" target="_blank">#5033: Function.is_number oddness</a></li>
+        
+        <li><a href="https://github.com/sympy/sympy/issues/6646" target="_blank">#6646: Undefined functions with number arguments should have is_number be False</a></li>
         </ul>
                     </div>
                 </td>
@@ -13655,10 +13692,10 @@ For floats in the present code, yes (see https://github.com/sympy/sympy/issues/1
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_author issue_dataset_commenter">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_dataset_commenter issue_author">
                 <td>sympy/sympy</td>
                 <td><a href="https://github.com/sympy/sympy/pull/13372" target="_blank">13076 evalf.py, Mul args order issue</a></td>
-                <td>Issue Author, Issue Dataset Commenter</td>
+                <td>Issue Dataset Commenter, Issue Author</td>
                 <td>Sep 30, 2017</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -13725,10 +13762,10 @@ Look at https://github.com/sympy/sympy/wiki/Introduction-to-contributing
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench-verified" data-repo="sympy/sympy" data-types="issue_author issue_dataset_commenter">
+            <tr class="repo-row" data-dataset="swe-bench-verified" data-repo="sympy/sympy" data-types="issue_dataset_commenter issue_author">
                 <td>sympy/sympy</td>
                 <td><a href="https://github.com/sympy/sympy/pull/13372" target="_blank">13076 evalf.py, Mul args order issue</a></td>
-                <td>Issue Author, Issue Dataset Commenter</td>
+                <td>Issue Dataset Commenter, Issue Author</td>
                 <td>Sep 30, 2017</td>
                 <td><span class="badge badge-verified">Verified</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -13795,10 +13832,10 @@ Look at https://github.com/sympy/sympy/wiki/Introduction-to-contributing
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_author issue_dataset_commenter mentioned_in_hints">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_dataset_commenter issue_author mentioned_in_hints">
                 <td>sympy/sympy</td>
                 <td><a href="https://github.com/sympy/sympy/pull/13364" target="_blank">Add modular exponentiation(3-argument pow) for Expr</a></td>
-                <td>Issue Author, Issue Dataset Commenter, Mentioned In Hints</td>
+                <td>Issue Dataset Commenter, Issue Author, Mentioned In Hints</td>
                 <td>Sep 28, 2017</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -13930,10 +13967,10 @@ I don't think so. I think it should be easy to implement. Call `pow()` if the ar
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_author issue_dataset_commenter mentioned_in_hints">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_dataset_commenter issue_author mentioned_in_hints">
                 <td>sympy/sympy</td>
                 <td><a href="https://github.com/sympy/sympy/pull/13301" target="_blank">AccumBounds: Recreatable string using str() and srepr()</a></td>
-                <td>Issue Author, Issue Dataset Commenter, Mentioned In Hints</td>
+                <td>Issue Dataset Commenter, Issue Author, Mentioned In Hints</td>
                 <td>Sep 11, 2017</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -14178,13 +14215,13 @@ My proposition regarding the bounds can also help solving #8533. I agree with @a
     <h4>Related Issues</h4>
     <ul class="related-issues">
     
+        <li><a href="https://github.com/sympy/sympy/issues/9150" target="_blank">#9150: factorial(p) is not known to be at least 2 for prime p</a></li>
+        
         <li><a href="https://github.com/sympy/sympy/issues/8677" target="_blank">#8677: factorial(n) should "know" that it is divisible by n</a></li>
         
         <li><a href="https://github.com/sympy/sympy/issues/13125" target="_blank">#13125: modulo bug</a></li>
         
         <li><a href="https://github.com/sympy/sympy/issues/9151" target="_blank">#9151: _eval_is_prime for the Pow class</a></li>
-        
-        <li><a href="https://github.com/sympy/sympy/issues/9150" target="_blank">#9150: factorial(p) is not known to be at least 2 for prime p</a></li>
         </ul>
                     </div>
                 </td>
@@ -14718,10 +14755,10 @@ If you're happy with `x**3` you can use `xreplace` instead of `subs` as a workar
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_author issue_dataset_commenter">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_dataset_commenter issue_author">
                 <td>sympy/sympy</td>
                 <td><a href="https://github.com/sympy/sympy/pull/12977" target="_blank">#6984: Fix bug preventing the use of nullary functions</a></td>
-                <td>Issue Author, Issue Dataset Commenter</td>
+                <td>Issue Dataset Commenter, Issue Author</td>
                 <td>Jul 16, 2017</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -14803,7 +14840,7 @@ Original author: https://code.google.com/u/asmeurer@gmail.com/
             <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="author">
                 <td>sympy/sympy</td>
                 <td><a href="https://github.com/sympy/sympy/pull/12945" target="_blank">Make Function('f', real=True) work</a></td>
-                <td>Issue Author</td>
+                <td>PR Author</td>
                 <td>Jul 11, 2017</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -14842,7 +14879,7 @@ Original author: https://code.google.com/u/asmeurer@gmail.com/
             <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_author author">
                 <td>sympy/sympy</td>
                 <td><a href="https://github.com/sympy/sympy/pull/12798" target="_blank">Only use the "polynomial" definition of ff() and rf() if the input is a Poly</a></td>
-                <td>Issue Author, Issue Author</td>
+                <td>Issue Author, PR Author</td>
                 <td>Jun 24, 2017</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -15127,10 +15164,10 @@ This behavior would be useful in a CI environment where the tests are run on hea
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="conda/conda" data-types="issue_author issue_dataset_commenter">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="conda/conda" data-types="issue_dataset_commenter issue_author">
                 <td>conda/conda</td>
                 <td><a href="https://github.com/conda/conda/pull/5200" target="_blank">fix #3470 extra newlines around exceptions</a></td>
-                <td>Issue Author, Issue Dataset Commenter</td>
+                <td>Issue Dataset Commenter, Issue Author</td>
                 <td>May 01, 2017</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -15935,10 +15972,10 @@ So it looks like I have to make this canonical, too.</pre>
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_author issue_dataset_commenter">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_dataset_commenter issue_author">
                 <td>sympy/sympy</td>
                 <td><a href="https://github.com/sympy/sympy/pull/12227" target="_blank">core : Float constructor allows to set binary or decimal precision</a></td>
-                <td>Issue Author, Issue Dataset Commenter</td>
+                <td>Issue Dataset Commenter, Issue Author</td>
                 <td>Feb 27, 2017</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -16033,10 +16070,10 @@ It should be `S.UniversalSet`. See https://en.wikipedia.org/wiki/Intersection_(s
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_author issue_dataset_commenter mentioned_in_hints">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_dataset_commenter issue_author mentioned_in_hints">
                 <td>sympy/sympy</td>
                 <td><a href="https://github.com/sympy/sympy/pull/12108" target="_blank">Corrected Boolean Expression StrPrinting except Not</a></td>
-                <td>Issue Author, Issue Dataset Commenter, Mentioned In Hints</td>
+                <td>Issue Dataset Commenter, Issue Author, Mentioned In Hints</td>
                 <td>Jan 28, 2017</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -16096,10 +16133,10 @@ I want to work on this.  Kindly let me know if this is still open? </pre>
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_author issue_dataset_commenter mentioned_in_hints">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_dataset_commenter issue_author mentioned_in_hints">
                 <td>sympy/sympy</td>
                 <td><a href="https://github.com/sympy/sympy/pull/12096" target="_blank">Implemented recursive calling of evalf() function</a></td>
-                <td>Issue Author, Issue Dataset Commenter, Mentioned In Hints</td>
+                <td>Issue Dataset Commenter, Issue Author, Mentioned In Hints</td>
                 <td>Jan 25, 2017</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -16147,10 +16184,10 @@ The Travis failure is an unrelated failure, which has been fixed in master. Once
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench-verified" data-repo="sympy/sympy" data-types="issue_author issue_dataset_commenter mentioned_in_hints">
+            <tr class="repo-row" data-dataset="swe-bench-verified" data-repo="sympy/sympy" data-types="issue_dataset_commenter issue_author mentioned_in_hints">
                 <td>sympy/sympy</td>
                 <td><a href="https://github.com/sympy/sympy/pull/12096" target="_blank">Implemented recursive calling of evalf() function</a></td>
-                <td>Issue Author, Issue Dataset Commenter, Mentioned In Hints</td>
+                <td>Issue Dataset Commenter, Issue Author, Mentioned In Hints</td>
                 <td>Jan 25, 2017</td>
                 <td><span class="badge badge-verified">Verified</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -16198,10 +16235,10 @@ The Travis failure is an unrelated failure, which has been fixed in master. Once
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_author author issue_dataset_commenter dataset_commenter">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_dataset_commenter dataset_commenter author issue_author">
                 <td>sympy/sympy</td>
                 <td><a href="https://github.com/sympy/sympy/pull/12088" target="_blank">Fix Poly and nsimplify to not lose precision</a></td>
-                <td>Issue Author, Issue Author, Issue Dataset Commenter, Dataset Commenter</td>
+                <td>Issue Dataset Commenter, Dataset Commenter, PR Author, Issue Author</td>
                 <td>Jan 24, 2017</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -16385,10 +16422,10 @@ The change should be made in sympy/printing/pretty/pretty.py. </pre>
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_author issue_dataset_commenter mentioned_in_hints">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_dataset_commenter issue_author mentioned_in_hints">
                 <td>sympy/sympy</td>
                 <td><a href="https://github.com/sympy/sympy/pull/11897" target="_blank">Improved Latex Printing of Piecewise Functions</a></td>
-                <td>Issue Author, Issue Dataset Commenter, Mentioned In Hints</td>
+                <td>Issue Dataset Commenter, Issue Author, Mentioned In Hints</td>
                 <td>Dec 03, 2016</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -16504,7 +16541,7 @@ The piecewise should print like it does for the Unicode pretty printer.
             <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="author">
                 <td>sympy/sympy</td>
                 <td><a href="https://github.com/sympy/sympy/pull/11862" target="_blank">Remove evalf call from nsolve</a></td>
-                <td>Issue Author</td>
+                <td>PR Author</td>
                 <td>Nov 16, 2016</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -16854,10 +16891,10 @@ Regarding your other points, note that `in` means "is contained in", not "is sub
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_author issue_dataset_commenter">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_dataset_commenter issue_author">
                 <td>sympy/sympy</td>
                 <td><a href="https://github.com/sympy/sympy/pull/11787" target="_blank">nsolve leaves function unmodified</a></td>
-                <td>Issue Author, Issue Dataset Commenter</td>
+                <td>Issue Dataset Commenter, Issue Author</td>
                 <td>Oct 29, 2016</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -16955,10 +16992,10 @@ Since there are two people asking, maybe one person can try #11286 which is very
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_author issue_dataset_commenter">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="sympy/sympy" data-types="issue_dataset_commenter issue_author">
                 <td>sympy/sympy</td>
                 <td><a href="https://github.com/sympy/sympy/pull/11384" target="_blank">Update formal power series printing</a></td>
-                <td>Issue Author, Issue Dataset Commenter</td>
+                <td>Issue Dataset Commenter, Issue Author</td>
                 <td>Jul 11, 2016</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -17042,10 +17079,10 @@ I guess it depends on what the use-cases for fps are.  FWIW, I think series retu
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="ipython/ipython" data-types="issue_author issue_dataset_commenter">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="ipython/ipython" data-types="issue_dataset_commenter issue_author">
                 <td>ipython/ipython</td>
                 <td><a href="https://github.com/ipython/ipython/pull/9647" target="_blank">Remove the "autoedit_syntax" feature.</a></td>
-                <td>Issue Author, Issue Dataset Commenter</td>
+                <td>Issue Dataset Commenter, Issue Author</td>
                 <td>Jun 21, 2016</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -17523,10 +17560,10 @@ I'm able to reproduce this by force-installing a bad version of `anaconda` into 
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="ipython/ipython" data-types="issue_author issue_dataset_commenter mentioned_in_hints">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="ipython/ipython" data-types="issue_dataset_commenter issue_author mentioned_in_hints">
                 <td>ipython/ipython</td>
                 <td><a href="https://github.com/ipython/ipython/pull/9335" target="_blank">Get signatures directly from classes</a></td>
-                <td>Issue Author, Issue Dataset Commenter, Mentioned In Hints</td>
+                <td>Issue Dataset Commenter, Issue Author, Mentioned In Hints</td>
                 <td>Mar 18, 2016</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -17692,7 +17729,7 @@ If it's really the case then WinAPI **GetFileInformationByHandle** should be use
             <tr class="repo-row" data-dataset="swe-bench" data-repo="conda/conda" data-types="issue_author author">
                 <td>conda/conda</td>
                 <td><a href="https://github.com/conda/conda/pull/1668" target="_blank">Don't fetch the package metadata from the network with conda remove</a></td>
-                <td>Issue Author, Issue Author</td>
+                <td>Issue Author, PR Author</td>
                 <td>Oct 01, 2015</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -17812,10 +17849,10 @@ I say semi because you could theoretically run out of disk space before the envi
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="conda/conda" data-types="author issue_dataset_commenter">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="conda/conda" data-types="issue_dataset_commenter author">
                 <td>conda/conda</td>
                 <td><a href="https://github.com/conda/conda/pull/1613" target="_blank">Respect --no-deps when installing from .tar or .tar.bz2</a></td>
-                <td>Issue Author, Issue Dataset Commenter</td>
+                <td>Issue Dataset Commenter, PR Author</td>
                 <td>Sep 14, 2015</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -17862,7 +17899,7 @@ What is the status here?
             <tr class="repo-row" data-dataset="swe-bench" data-repo="conda/conda" data-types="author">
                 <td>conda/conda</td>
                 <td><a href="https://github.com/conda/conda/pull/1563" target="_blank">Fix conda create --clone with create_default_packages</a></td>
-                <td>Issue Author</td>
+                <td>PR Author</td>
                 <td>Aug 31, 2015</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -17952,10 +17989,10 @@ P.S: I could understand that changing the .condrc file to include default packag
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="conda/conda" data-types="author issue_dataset_commenter">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="conda/conda" data-types="issue_dataset_commenter author">
                 <td>conda/conda</td>
                 <td><a href="https://github.com/conda/conda/pull/1562" target="_blank">Add package itself to NoPackagesFound pkgs list</a></td>
-                <td>Issue Author, Issue Dataset Commenter</td>
+                <td>Issue Dataset Commenter, PR Author</td>
                 <td>Aug 31, 2015</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -18113,10 +18150,10 @@ Reading @asmeurer comments in #679, I agree that the correct behavior in this ca
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="conda/conda" data-types="author issue_dataset_commenter">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="conda/conda" data-types="issue_dataset_commenter author">
                 <td>conda/conda</td>
                 <td><a href="https://github.com/conda/conda/pull/1496" target="_blank">Set the verify flag directly on CondaSession</a></td>
-                <td>Issue Author, Issue Dataset Commenter</td>
+                <td>Issue Dataset Commenter, PR Author</td>
                 <td>Aug 05, 2015</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -18151,10 +18188,10 @@ This change would mean that we don't need the verify argument here: https://gith
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="conda/conda" data-types="author issue_dataset_commenter">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="conda/conda" data-types="issue_dataset_commenter author">
                 <td>conda/conda</td>
                 <td><a href="https://github.com/conda/conda/pull/1463" target="_blank">Give a better error when a proxy isn't found for a given scheme</a></td>
-                <td>Issue Author, Issue Dataset Commenter</td>
+                <td>Issue Dataset Commenter, PR Author</td>
                 <td>Jul 27, 2015</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -18254,7 +18291,7 @@ Current conda install:
             <tr class="repo-row" data-dataset="swe-bench" data-repo="conda/conda" data-types="author">
                 <td>conda/conda</td>
                 <td><a href="https://github.com/conda/conda/pull/1318" target="_blank">Add a confirmation to conda remove</a></td>
-                <td>Issue Author</td>
+                <td>PR Author</td>
                 <td>May 04, 2015</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -18293,7 +18330,7 @@ I'm just running 3.11.0 and haven't grabbed and functionally tested master to se
             <tr class="repo-row" data-dataset="swe-bench" data-repo="conda/conda" data-types="author">
                 <td>conda/conda</td>
                 <td><a href="https://github.com/conda/conda/pull/1231" target="_blank">Clean envs dirs</a></td>
-                <td>Issue Author</td>
+                <td>PR Author</td>
                 <td>Mar 30, 2015</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -18344,7 +18381,7 @@ FileNotFoundError: [Errno 2] No such file or directory: '/root/.conda/envs/.pkgs
             <tr class="repo-row" data-dataset="swe-bench" data-repo="conda/conda" data-types="author">
                 <td>conda/conda</td>
                 <td><a href="https://github.com/conda/conda/pull/1138" target="_blank">Update --all fixes</a></td>
-                <td>Issue Author</td>
+                <td>PR Author</td>
                 <td>Feb 09, 2015</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -18371,10 +18408,10 @@ Another idea would be to relax the downgrade restriction, and just have it essen
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="conda/conda" data-types="issue_author author issue_dataset_commenter">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="conda/conda" data-types="issue_dataset_commenter issue_author author">
                 <td>conda/conda</td>
                 <td><a href="https://github.com/conda/conda/pull/1133" target="_blank">Avoid the Windows file lock by moving files to a trash directory</a></td>
-                <td>Issue Author, Issue Author, Issue Dataset Commenter</td>
+                <td>Issue Dataset Commenter, Issue Author, PR Author</td>
                 <td>Feb 06, 2015</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -18448,7 +18485,7 @@ See https://stackoverflow.com/questions/1889597/deleting-directory-in-python/188
             <tr class="repo-row" data-dataset="swe-bench" data-repo="conda/conda" data-types="author mentioned_in_problem">
                 <td>conda/conda</td>
                 <td><a href="https://github.com/conda/conda/pull/872" target="_blank">Binstar stuff</a></td>
-                <td>Issue Author, Mentioned In Problem</td>
+                <td>PR Author, Mentioned In Problem</td>
                 <td>Aug 19, 2014</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -18617,18 +18654,18 @@ Maybe the new conda run command could be used to do this.
     <h4>Related Issues</h4>
     <ul class="related-issues">
     
-        <li><a href="https://github.com/conda/conda/issues/713" target="_blank">#713: conda list --json</a></li>
-        
         <li><a href="https://github.com/conda/conda/issues/773" target="_blank">#773: Add JSON output options to install and create</a></li>
+        
+        <li><a href="https://github.com/conda/conda/issues/713" target="_blank">#713: conda list --json</a></li>
         </ul>
                     </div>
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="conda/conda" data-types="author issue_dataset_commenter">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="conda/conda" data-types="issue_dataset_commenter author">
                 <td>conda/conda</td>
                 <td><a href="https://github.com/conda/conda/pull/739" target="_blank">Work on getting conda to prompt for proxy username and password</a></td>
-                <td>Issue Author, Issue Dataset Commenter</td>
+                <td>Issue Dataset Commenter, PR Author</td>
                 <td>May 23, 2014</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -18718,7 +18755,7 @@ exact same thing.
             <tr class="repo-row" data-dataset="swe-bench" data-repo="conda/conda" data-types="issue_author author">
                 <td>conda/conda</td>
                 <td><a href="https://github.com/conda/conda/pull/707" target="_blank">Automatically sleep and retry on a lock error</a></td>
-                <td>Issue Author, Issue Author</td>
+                <td>Issue Author, PR Author</td>
                 <td>May 02, 2014</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -18751,7 +18788,7 @@ The yum installer (IIRC) has a nice feature that it will keep trying every 10 se
             <tr class="repo-row" data-dataset="swe-bench" data-repo="conda/conda" data-types="author mentioned_in_hints">
                 <td>conda/conda</td>
                 <td><a href="https://github.com/conda/conda/pull/682" target="_blank">Use requests in conda (fixes #400)</a></td>
-                <td>Issue Author, Mentioned In Hints</td>
+                <td>PR Author, Mentioned In Hints</td>
                 <td>Apr 23, 2014</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -18878,7 +18915,7 @@ I didn't notice a speed difference using session, but I'll use it anyway.
             <tr class="repo-row" data-dataset="swe-bench" data-repo="conda/conda" data-types="author">
                 <td>conda/conda</td>
                 <td><a href="https://github.com/conda/conda/pull/667" target="_blank">Fix NoPackagesFound for recursive dependencies (fixes #666)</a></td>
-                <td>Issue Author</td>
+                <td>PR Author</td>
                 <td>Apr 14, 2014</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -18905,7 +18942,7 @@ I didn't notice a speed difference using session, but I'll use it anyway.
             <tr class="repo-row" data-dataset="swe-bench" data-repo="conda/conda" data-types="author">
                 <td>conda/conda</td>
                 <td><a href="https://github.com/conda/conda/pull/662" target="_blank">Better printing of package version changes (fixes #464)</a></td>
-                <td>Issue Author</td>
+                <td>PR Author</td>
                 <td>Apr 11, 2014</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -18963,10 +19000,10 @@ I think the build is meaningful as it tells you what Python version is being use
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="conda/conda" data-types="issue_author author issue_dataset_commenter">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="conda/conda" data-types="issue_dataset_commenter issue_author author">
                 <td>conda/conda</td>
                 <td><a href="https://github.com/conda/conda/pull/620" target="_blank">Automatically skip packages that have dependencies that can't be found</a></td>
-                <td>Issue Author, Issue Author, Issue Dataset Commenter</td>
+                <td>Issue Dataset Commenter, Issue Author, PR Author</td>
                 <td>Mar 24, 2014</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -18997,10 +19034,10 @@ When a dependency for a package can't be found, conda bails completely, but this
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="ipython/ipython" data-types="issue_author issue_dataset_commenter">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="ipython/ipython" data-types="issue_dataset_commenter issue_author">
                 <td>ipython/ipython</td>
                 <td><a href="https://github.com/ipython/ipython/pull/4060" target="_blank">only strip continuation prompts if regular prompts seen first</a></td>
-                <td>Issue Author, Issue Dataset Commenter</td>
+                <td>Issue Dataset Commenter, Issue Author</td>
                 <td>Aug 19, 2013</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -19144,10 +19181,10 @@ This seems related to #1103.
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="ipython/ipython" data-types="issue_author issue_dataset_commenter">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="ipython/ipython" data-types="issue_dataset_commenter issue_author">
                 <td>ipython/ipython</td>
                 <td><a href="https://github.com/ipython/ipython/pull/3568" target="_blank">pylab import adjustments</a></td>
-                <td>Issue Author, Issue Dataset Commenter</td>
+                <td>Issue Dataset Commenter, Issue Author</td>
                 <td>Jul 06, 2013</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -19180,9 +19217,9 @@ Repurpose the existing name, I would say.
     
         <li><a href="https://github.com/ipython/ipython/issues/3436" target="_blank">#3436: enable_pylab(import_all=False) still imports np</a></li>
         
-        <li><a href="https://github.com/ipython/ipython/issues/2664" target="_blank">#2664: How to preserve user variables from import clashing?</a></li>
-        
         <li><a href="https://github.com/ipython/ipython/issues/2630" target="_blank">#2630: lib.pylabtools.figsize : NameError when using Qt4Agg backend and %pylab magic. </a></li>
+        
+        <li><a href="https://github.com/ipython/ipython/issues/2664" target="_blank">#2664: How to preserve user variables from import clashing?</a></li>
         </ul>
                     </div>
                 </td>
@@ -19263,7 +19300,7 @@ AttributeError: 'BasicMagics' object has no attribute '_lsmagic'
             <tr class="repo-row" data-dataset="swe-bench" data-repo="conda/conda" data-types="author">
                 <td>conda/conda</td>
                 <td><a href="https://github.com/conda/conda/pull/125" target="_blank">Add --channels options</a></td>
-                <td>Issue Author</td>
+                <td>PR Author</td>
                 <td>Jun 05, 2013</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -19398,7 +19435,7 @@ Setting `__module__` to None is a way to make pickling work for dynamically defi
             <tr class="repo-row" data-dataset="swe-bench" data-repo="ipython/ipython" data-types="issue_author author">
                 <td>ipython/ipython</td>
                 <td><a href="https://github.com/ipython/ipython/pull/2859" target="_blank">Correct docstring of ipython.py</a></td>
-                <td>Issue Author, Issue Author</td>
+                <td>Issue Author, PR Author</td>
                 <td>Jan 28, 2013</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -19442,7 +19479,7 @@ On Mon, Jan 28, 2013 at 12:31 AM, Aaron Meurer notifications@github.comwrote:
             <tr class="repo-row" data-dataset="swe-bench" data-repo="ipython/ipython" data-types="issue_author author">
                 <td>ipython/ipython</td>
                 <td><a href="https://github.com/ipython/ipython/pull/2638" target="_blank">Fix %paste in Python 3 on Mac</a></td>
-                <td>Issue Author, Issue Author</td>
+                <td>Issue Author, PR Author</td>
                 <td>Dec 02, 2012</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
@@ -19538,10 +19575,10 @@ TypeError: expected bytes, bytearray or buffer compatible object
                 </td>
             </tr>
         
-            <tr class="repo-row" data-dataset="swe-bench" data-repo="ipython/ipython" data-types="issue_author author issue_dataset_commenter">
+            <tr class="repo-row" data-dataset="swe-bench" data-repo="ipython/ipython" data-types="issue_dataset_commenter issue_author author">
                 <td>ipython/ipython</td>
                 <td><a href="https://github.com/ipython/ipython/pull/2110" target="_blank">Fixes and improvements to the input splitter</a></td>
-                <td>Issue Author, Issue Author, Issue Dataset Commenter</td>
+                <td>Issue Dataset Commenter, Issue Author, PR Author</td>
                 <td>Jul 08, 2012</td>
                 <td><span class="badge badge-standard">Standard</span></td>
                 <td><button class="toggle-details">Show Details</button></td>
