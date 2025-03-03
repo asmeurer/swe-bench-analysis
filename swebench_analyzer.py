@@ -38,6 +38,44 @@ GITHUB_CACHE_DIR = Path.home() / ".swe-bench-cache" / "github"
 CACHE_EXPIRY_DAYS = 7  # Cache expiry in days
 REQUEST_TIMEOUT = 10  # Default timeout for GitHub requests in seconds
 
+# Extract issue references from PR descriptions
+def extract_issue_references_from_pr(pr_data):
+    """Extract issue references from PR body.
+    
+    Looks for references like "Fixes #123", "Closes #123", etc. in PR body.
+    
+    Args:
+        pr_data: The PR data from GitHub API
+        
+    Returns:
+        A list of issue numbers as strings.
+    """
+    if not pr_data:
+        return []
+    
+    issues = []
+    
+    # Extract from PR body
+    body = pr_data.get('body', '')
+    if not body:
+        return []
+    
+    import re
+    
+    # Match patterns like "Fixes #123", "Closes #123", etc.
+    pattern = re.compile(r'(?:fix(?:es|ed)?|close(?:s|d)?|resolve(?:s|d)?)\s+#(\d+)', re.IGNORECASE)
+    for match in pattern.finditer(body):
+        issue_number = match.group(1)
+        issues.append(issue_number)
+    
+    # Match full URLs like "Fixes https://github.com/owner/repo/issues/123"
+    url_pattern = re.compile(r'(?:fix(?:es|ed)?|close(?:s|d)?|resolve(?:s|d)?)\s+https?://github\.com/[^/]+/[^/]+/issues/(\d+)', re.IGNORECASE)
+    for match in url_pattern.finditer(body):
+        issue_number = match.group(1)
+        issues.append(issue_number)
+    
+    return list(set(issues))  # Remove duplicates
+
 # Cache functions
 def get_cache_key(repo, number):
     """Generate a unique cache key for a GitHub issue/PR."""
@@ -284,6 +322,14 @@ def print_results_summary(results):
         print(f"   Title: {result['title']}")
         print(f"   URL: {result['url']}")
         print(f"   Created: {result['created_at']}")
+        
+        # Print related issues if any
+        related_issues = result.get('github_info', {}).get('related_issues', [])
+        if related_issues:
+            print(f"   Related Issues:")
+            for issue in related_issues:
+                print(f"     - #{issue['number']}: {issue['title']}")
+        
         print()
 
 def extract_repo_and_number(instance_id, repo=None):
@@ -610,12 +656,34 @@ def analyze_dataset_with_github(dataset, username, token, output_file):
             # Fetch from GitHub API
             item, comments = fetch_github_issue_or_pr(repo_name, number, token, use_cache=use_cache, timeout=timeout)
 
-        # Check GitHub API contributions
+        # Check GitHub API contributions to the PR
         contribution_types = check_user_contribution(username, item, comments)
 
         # Check if user is mentioned in the dataset hints
         if 'hints_text' in instance and check_text_for_username(instance['hints_text'], username):
             contribution_types.append("mentioned_in_hints")
+            
+        # Extract issue references from PR and check them too
+        related_issues = []
+        if item and 'body' in item:
+            issue_numbers = extract_issue_references_from_pr(item)
+            
+            for issue_number in issue_numbers:
+                # Fetch the related issue
+                issue, issue_comments = fetch_github_issue_or_pr(repo_name, issue_number, token, use_cache=use_cache, timeout=timeout)
+                
+                if issue:
+                    related_issues.append({
+                        'number': issue_number,
+                        'title': issue.get('title', 'Unknown'),
+                        'url': issue.get('html_url', '')
+                    })
+                    
+                    # Check for user contributions to the issue
+                    issue_types = check_user_contribution(username, issue, issue_comments)
+                    if issue_types:
+                        # Add prefix to distinguish issue contributions
+                        contribution_types.extend([f"issue_{t}" for t in issue_types])
 
         # If any contributions found, add to results
         if contribution_types:
@@ -634,7 +702,8 @@ def analyze_dataset_with_github(dataset, username, token, output_file):
                     'issue_found': item is not None,
                     'comment_count': len(comments) if comments else 0,
                     'from_cache': cached_data is not None,
-                    'is_404': cached_data.get('is_404', False) if cached_data else False
+                    'is_404': cached_data.get('is_404', False) if cached_data else False,
+                    'related_issues': related_issues
                 }
             })
 
