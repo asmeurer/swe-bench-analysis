@@ -6,10 +6,6 @@ user has contributed in ways that would make it into the SWE-bench dataset:
 1. As the original issue author
 2. As a commenter whose comments became part of the "hints" in the dataset
 3. As the pull request author
-
-Datasets are automatically loaded from Hugging Face if not provided locally:
-- princeton-nlp/SWE-bench
-- princeton-nlp/SWE-bench_Verified
 """
 
 import argparse
@@ -511,14 +507,56 @@ def fetch_github_issue_or_pr(repo, number, token, retries=3, use_cache=True, tim
 
     return item, all_comments
 
+def is_comment_in_dataset(comment, dataset_instance):
+    """Check if a comment is included in the dataset instance's hints or problem statement."""
+    if not comment or not dataset_instance:
+        return False
+    
+    comment_body = comment.get('body', '')
+    if not comment_body:
+        return False
+    
+    # Check if significant parts of the comment appear in the dataset
+    # Normalize and clean texts for better matching
+    comment_text = comment_body.lower().strip()
+    
+    # Get dataset texts
+    hints_text = dataset_instance.get('hints_text', '').lower() if dataset_instance.get('hints_text') else ''
+    problem_text = dataset_instance.get('problem_statement', '').lower() if dataset_instance.get('problem_statement') else ''
+    
+    # Check if comment appears in dataset
+    # For a match, we look for at least 50 characters of content if the comment is longer than that
+    # This helps avoid false positives from short, common phrases
+    
+    # For long comments, try to find substantial parts
+    if len(comment_text) > 100:
+        # Split into sentences or paragraphs and check each
+        import re
+        chunks = re.split(r'[.!?\n]+', comment_text)
+        for chunk in chunks:
+            chunk = chunk.strip()
+            if len(chunk) >= 50:
+                if chunk in hints_text or chunk in problem_text:
+                    return True
+        
+        # If no exact matches, try to find substantial verbatim content
+        # (at least 100 characters)
+        for i in range(len(comment_text) - 100):
+            snippet = comment_text[i:i+100]
+            if snippet in hints_text or snippet in problem_text:
+                return True
+                
+        return False
+    
+    # For shorter comments, check if they appear entirely
+    return comment_text in hints_text or comment_text in problem_text
 
-
-def check_user_contribution(username, item, comments):
+def check_user_contribution(username, item, comments, dataset_instance):
     """Check if the user contributed to this issue/PR in a way that appears in the SWE-bench dataset.
 
-    Only checks for contributions that would make it into the SWE-bench dataset:
+    Only considers contributions that actually made it into the dataset:
     1. User is the original issue author
-    2. User made comments that became part of the "hints" in the dataset
+    2. User made comments that became part of the "hints" or "problem_statement" in the dataset
     3. User authored the pull request
     """
     if not item:
@@ -534,7 +572,7 @@ def check_user_contribution(username, item, comments):
     if 'pull_request' in item and item.get('user', {}).get('login') == username:
         contribution_types.append("pr_author")
 
-    # Check comments - only those that might end up in the hints
+    # Check comments - ONLY if they actually appear in the dataset content
     for comment in comments:
         if comment is None:
             continue
@@ -544,8 +582,10 @@ def check_user_contribution(username, item, comments):
             continue
 
         if comment.get('user', {}).get('login') == username:
-            contribution_types.append("commenter")
-            break
+            # Only add as commenter if the comment is actually in the dataset
+            if is_comment_in_dataset(comment, dataset_instance):
+                contribution_types.append("dataset_commenter")
+                break
 
     return contribution_types
 
@@ -560,6 +600,11 @@ def analyze_dataset_offline(dataset, username, output_file):
         if 'hints_text' in instance and instance['hints_text']:
             if check_text_for_username(instance['hints_text'], username):
                 contribution_types.append("mentioned_in_hints")
+
+        # Also check problem statement
+        if 'problem_statement' in instance and instance['problem_statement']:
+            if check_text_for_username(instance['problem_statement'], username):
+                contribution_types.append("mentioned_in_problem")
 
         if contribution_types:
             # Extract repo and number
@@ -657,11 +702,15 @@ def analyze_dataset_with_github(dataset, username, token, output_file):
             item, comments = fetch_github_issue_or_pr(repo_name, number, token, use_cache=use_cache, timeout=timeout)
 
         # Check GitHub API contributions to the PR
-        contribution_types = check_user_contribution(username, item, comments)
+        contribution_types = check_user_contribution(username, item, comments, instance)
 
         # Check if user is mentioned in the dataset hints
         if 'hints_text' in instance and check_text_for_username(instance['hints_text'], username):
             contribution_types.append("mentioned_in_hints")
+            
+        # Check if user is mentioned in the problem statement
+        if 'problem_statement' in instance and check_text_for_username(instance['problem_statement'], username):
+            contribution_types.append("mentioned_in_problem")
             
         # Extract issue references from PR and check them too
         related_issues = []
@@ -680,7 +729,7 @@ def analyze_dataset_with_github(dataset, username, token, output_file):
                     })
                     
                     # Check for user contributions to the issue
-                    issue_types = check_user_contribution(username, issue, issue_comments)
+                    issue_types = check_user_contribution(username, issue, issue_comments, instance)
                     if issue_types:
                         # Add prefix to distinguish issue contributions
                         contribution_types.extend([f"issue_{t}" for t in issue_types])
