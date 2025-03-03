@@ -369,3 +369,7 @@ The SWE-bench Contributor Analyzer helps you identify instances in these dataset
 ## License
 
 This script is provided as-is under the MIT License.
+
+## Acknowledgements
+
+This entire project, including both the analyzer and visualization code, was generated with [Claude Code](https://claude.ai/code) with some initial help from [Grok DeepSearch](https://grok.x.ai/) to explore the SWE-bench dataset structure. The visualizations, data processing logic, and GitHub API integration were all created through conversations with Claude.
