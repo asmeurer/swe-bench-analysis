@@ -4,7 +4,7 @@ A tool for analyzing the SWE-bench and SWE-bench-verified datasets to identify G
 
 ## 📊 Sample Visualizations
 
-**[View my personal SWE-bench contribution report](https://asmeurer.github.io/swe-bench-analysis/docs/report.html)** to see an example of the visualization output from this tool.
+**[View my personal SWE-bench contribution report](https://asmeurer.com/swe-bench-analysis/report.html)** to see an example of the visualization output from this tool.
 
 This sample shows my personal contribution data, including:
 - Distribution of contributions by repository
@@ -189,7 +189,7 @@ python visualize_results.py
 
 This will:
 1. Load the data from `user_contributions.json`
-2. Create various visualizations 
+2. Create various visualizations
 3. Generate an HTML report in the `visualizations/` directory
 4. Save all chart images in the same directory
 
