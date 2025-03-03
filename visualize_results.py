@@ -29,6 +29,35 @@ def load_results(file_path):
         print(f"Error loading results file: {e}")
         return None
 
+def format_contribution_type(contribution_type):
+    """Format contribution type to be more readable."""
+    if not contribution_type:
+        return "Unknown"
+    
+    # Handle prefixes like "issue_author" -> "Issue Author"
+    if "_" in contribution_type:
+        parts = contribution_type.split("_")
+        return " ".join(part.capitalize() for part in parts)
+    
+    # Handle special types
+    type_map = {
+        "author": "Issue Author",
+        "pr_author": "PR Author",
+        "commenter": "Commenter",
+        "dataset_commenter": "Dataset Comment Contributor",
+        "mentioned_in_hints": "Mentioned in Hints",
+        "mentioned_in_problem": "Mentioned in Problem",
+        "issue_author": "Issue Author", 
+        "issue_commenter": "Issue Commenter",
+        "issue_dataset_commenter": "Issue Comment in Dataset",
+    }
+    
+    if contribution_type in type_map:
+        return type_map[contribution_type]
+    
+    # Default: just capitalize
+    return contribution_type.replace("_", " ").capitalize()
+
 def prepare_data(data):
     """Process the raw data into formats suitable for visualization."""
     if not data or 'results' not in data:
@@ -97,6 +126,12 @@ def prepare_data(data):
             except:
                 # Skip dates that can't be parsed
                 pass
+                
+        # Process related issues if present
+        related_issues = result.get('github_info', {}).get('related_issues', [])
+        if related_issues:
+            # Could track these separately if needed
+            pass
 
     return processed_data
 
@@ -134,8 +169,10 @@ def create_visualizations(processed_data, output_dir=None):
     
     # 2. Contribution Types
     plt.figure()
+    # Create a DataFrame with formatted type names
     types_df = pd.DataFrame({
-        'Type': list(processed_data['type_counts'].keys()),
+        'Type': [format_contribution_type(t) for t in processed_data['type_counts'].keys()],
+        'RawType': list(processed_data['type_counts'].keys()),
         'Count': list(processed_data['type_counts'].values())
     })
     types_df = types_df.sort_values('Count', ascending=False)
@@ -205,6 +242,7 @@ def create_visualizations(processed_data, output_dir=None):
     # 5. Heatmap of Repos vs Contribution Types
     top_repos = [repo for repo, _ in processed_data['repo_counts'].most_common(10)]
     all_types = list(processed_data['type_counts'].keys())
+    formatted_types = [format_contribution_type(t) for t in all_types]
     
     heatmap_data = []
     for repo in top_repos:
@@ -214,7 +252,7 @@ def create_visualizations(processed_data, output_dir=None):
         heatmap_data.append(repo_data)
     
     plt.figure(figsize=(12, 8))
-    df_heatmap = pd.DataFrame(heatmap_data, index=top_repos, columns=all_types)
+    df_heatmap = pd.DataFrame(heatmap_data, index=top_repos, columns=formatted_types)
     
     # Replace zero values with NaN for better visualization
     df_heatmap = df_heatmap.replace(0, np.nan)
@@ -254,6 +292,29 @@ def create_visualizations(processed_data, output_dir=None):
     # Generate HTML report
     if output_dir:
         create_html_report(processed_data, output_dir)
+
+def render_related_issues(result):
+    """Render HTML for related issues section."""
+    related_issues = result.get('github_info', {}).get('related_issues', [])
+    if not related_issues:
+        return ""
+    
+    html = """
+    <h4>Related Issues</h4>
+    <ul class="related-issues">
+    """
+    
+    for issue in related_issues:
+        issue_number = issue.get('number', '')
+        issue_title = issue.get('title', 'Unknown Issue')
+        issue_url = issue.get('url', '#')
+        
+        html += f"""
+        <li><a href="{issue_url}" target="_blank">#{issue_number}: {issue_title}</a></li>
+        """
+    
+    html += "</ul>"
+    return html
 
 def create_html_report(processed_data, output_dir):
     """Create an HTML report with all visualizations and data summaries."""
@@ -361,6 +422,18 @@ def create_html_report(processed_data, output_dir):
             .badge-standard {{
                 background-color: #3498db;
                 color: white;
+            }}
+            .related-issues {{
+                margin-top: 10px;
+                list-style-type: none;
+                padding-left: 0;
+            }}
+            .related-issues li {{
+                margin-bottom: 8px;
+                padding: 5px 10px;
+                background-color: #f8f9fa;
+                border-radius: 4px;
+                border-left: 3px solid #3498db;
             }}
             .toggle-details {{
                 background-color: #3498db;
@@ -559,10 +632,11 @@ def create_html_report(processed_data, output_dir):
     """
     
     for type_name, count in processed_data['type_counts'].most_common():
+        formatted_type = format_contribution_type(type_name)
         percentage = (count / sum(processed_data['type_counts'].values())) * 100
         html_content += f"""
             <tr>
-                <td>{type_name}</td>
+                <td>{formatted_type}</td>
                 <td>{count}</td>
                 <td>{percentage:.1f}%</td>
             </tr>
@@ -618,7 +692,8 @@ def create_html_report(processed_data, output_dir):
         repo = result.get('repo', 'Unknown')
         title = result.get('title', 'Unknown')
         contribution_types = result.get('contribution_types', [])
-        types_str = ', '.join(contribution_types)
+        formatted_types = [format_contribution_type(t) for t in contribution_types]
+        types_str = ', '.join(formatted_types)
         date_str = result.get('created_at', 'Unknown date')
         url = result.get('url', '#')
         dataset = result.get('dataset', 'Unknown')
@@ -663,6 +738,9 @@ def create_html_report(processed_data, output_dir):
                         <pre>{hints}</pre>
                         
                         <p><a href="{url}" target="_blank">View on GitHub</a></p>
+                        
+                        <!-- Display related issues if any -->
+                        {render_related_issues(result)}
                     </div>
                 </td>
             </tr>
