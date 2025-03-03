@@ -178,16 +178,41 @@ def create_visualizations(processed_data, output_dir=None):
     types_df = types_df.sort_values('Count', ascending=False)
     
     colors = sns.color_palette("husl", len(types_df))
-    plt.figure(figsize=(10, 6))
-    plt.pie(types_df['Count'], labels=types_df['Type'], autopct='%1.1f%%', 
-            colors=colors, startangle=90)
+    plt.figure(figsize=(12, 10))
+    
+    # To prevent text overlap, use a pie chart with external labels
+    wedges, texts, autotexts = plt.pie(
+        types_df['Count'], 
+        labels=None,  # No direct labels
+        autopct='%1.1f%%', 
+        colors=colors, 
+        startangle=90,
+        pctdistance=0.85
+    )
+    
+    # Draw a circle at the center to make it a donut chart (helps with readability)
+    centre_circle = plt.Circle((0, 0), 0.70, fc='white')
+    plt.gca().add_artist(centre_circle)
+    
+    # Add a legend instead of direct labels to avoid overlap
+    plt.legend(
+        wedges, 
+        types_df['Type'],
+        title="Contribution Types",
+        loc="center left",
+        bbox_to_anchor=(1, 0, 0.5, 1)
+    )
+    
     plt.axis('equal')
     plt.title(f"Contribution Types Distribution for {processed_data['username']}")
     
     if output_dir:
-        plt.savefig(os.path.join(output_dir, 'contribution_types.png'))
+        # Add extra padding to ensure the legend fits when saved
+        plt.tight_layout(pad=4.0, rect=[0, 0, 0.85, 1])
+        plt.savefig(os.path.join(output_dir, 'contribution_types.png'), bbox_inches='tight')
         plt.close()
     else:
+        plt.tight_layout(pad=4.0, rect=[0, 0, 0.85, 1])
         plt.show()
     
     # 3. Timeline of Contributions
